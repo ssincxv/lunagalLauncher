@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Page
+    x:Class="lunagalLauncher.Views.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:lunagalLauncher.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Page.Resources>
+        <!-- 隐藏选中指示条的样式 / Style to hide selection indicator -->
+        <x:Double x:Key="NavigationViewSelectionIndicatorWidth">0</x:Double>
+        <x:Double x:Key="NavigationViewSelectionIndicatorHeight">0</x:Double>
+        <Thickness x:Key="NavigationViewSelectionIndicatorMargin">0</Thickness>
+        
+        <!-- 修复 NavigationView PaneToggleButton 黑色背景 / Fix NavigationView PaneToggleButton black background -->
+        <SolidColorBrush x:Key="NavigationViewItemBackgroundPointerOver" Color="Transparent"/>
+        <SolidColorBrush x:Key="NavigationViewItemBackgroundPressed" Color="Transparent"/>
+        <SolidColorBrush x:Key="NavigationViewItemBackgroundSelected" Color="Transparent"/>
+        <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPointerOver" Color="Transparent"/>
+        <SolidColorBrush x:Key="NavigationViewItemBackgroundSelectedPressed" Color="Transparent"/>
+        
+        <!-- 移除 PaneToggleButton 的背景和边框 / Remove PaneToggleButton background and border -->
+        <SolidColorBrush x:Key="NavigationViewButtonBackgroundPointerOver" Color="Transparent"/>
+        <SolidColorBrush x:Key="NavigationViewButtonBackgroundPressed" Color="Transparent"/>
+        <SolidColorBrush x:Key="NavigationViewButtonBackground" Color="Transparent"/>
+        <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
+        <CornerRadius x:Key="NavigationViewItemCornerRadius">0</CornerRadius>
+        
+        <!-- 统一导航项样式 / Unified navigation item style -->
+        <Style x:Key="NavigationViewItemStyle" TargetType="NavigationViewItem">
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+    </Page.Resources>
+
+    <!-- 主页面布局 / Main page layout -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- 标题栏 / Title bar -->
+            <RowDefinition Height="Auto"/>
+            <!-- 内容区域 / Content area -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 / Title Bar -->
+        <Grid Grid.Row="0" Background="{ThemeResource SystemControlAcrylicElementBrush}" Padding="16,12">
+            <!-- 标题栏现在为空，可以在这里添加其他内容 -->
+        </Grid>
+
+        <!--
+            主内容区域 / Main Content Area
+            ─────────────────────────────────────────────────────────────
+            
+            PaneDisplayMode="Left":
+              • 左侧侧栏和内容**并排**显示（非覆盖抽屉）
+              • 展开 pane 时 content 区域宽度同步收缩，content 区域整体
+                **向右平移**；收起时反过来 —— 这是用户要求的 "组件随
+                导航开合而位移" 的自然版式。
+              • pane 和 content 的背景同色，视觉上是一体的，没有覆盖层
+                的"浮框"感。
+              
+            已知遗留问题（WinUI 3 底层行为，非本项目可控）：
+              在 Left 模式下，pane 的 Composition 动画曲线与 content 的
+              Layout 动画曲线不由同一套系统驱动；中间帧存在数毫秒的相位
+              错开，可能导致右侧按钮出现非常轻微的 "右→左→复位" 的亚像素
+              晃动（< 2 px）。这个差异由 Microsoft.UI.Xaml.Controls.
+              NavigationView 内部决定，从用户层 XAML/C# 无法消除。
+              已通过其它改动把可见动画干扰降到最低：
+                1. 移除所有 RepositionThemeTransition / EntranceThemeTransition
+                2. 收紧 Col 2 按钮列宽度为 ~158px，避免任何窗口宽度下的
+                   "溢出 - 回弹"
+                3. iOS 风格 ScrollBar 不再做宽度补间
+              
+            Left mode: side-by-side navigation, pane expansion pushes
+            content; pane & content share background so the expanded state
+            still looks like one integrated page. The minor sub-pixel
+            wobble on right-anchored elements during toggle comes from
+            WinUI 3's NavigationView internally driving pane (Composition)
+            and content (Layout) on different systems — not fixable from
+            user code. All user-code-side overshoots have been eliminated.
+        -->
+        <NavigationView Grid.Row="1"
+                        x:Name="MainNavigationView"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="170"
+                        IsPaneToggleButtonVisible="True"
+                        SelectionChanged="MainNavigationView_SelectionChanged">
+
+            <!-- 导航菜单项 / Navigation Menu Items -->
+            <NavigationView.MenuItems>
+                <!-- 应用管理 / App Management -->
+                <NavigationViewItem Content="应用管理" Tag="AppManagement">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8B7;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- llama 服务 / llama Service -->
+                <NavigationViewItem Content="llama 服务" Tag="LlamaService">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE950;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- 鼠标映射 / Mouse Mapping -->
+                <NavigationViewItem Content="鼠标映射" Tag="MouseMapping">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE962;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- 日志 / Log -->
+                <NavigationViewItem Content="日志" Tag="LogViewer">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8F4;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <!-- 页脚菜单项 / Footer Menu Items -->
+            <NavigationView.FooterMenuItems>
+                <!-- 一键开启按钮 / One-Click Launch Button -->
+                <NavigationViewItem x:Name="LaunchAllNavItem" 
+                                    Content="Go！" 
+                                    Tag="LaunchAll"
+                                    Tapped="LaunchAllNavItem_Tapped">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE768;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="导出设置"
+                                      Tag="ExportAllSettings"
+                                      Tapped="ExportAllSettingsNavItem_Tapped">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74E;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="导入设置"
+                                      Tag="ImportAllSettings"
+                                      Tapped="ImportAllSettingsNavItem_Tapped">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8B7;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+
+            <!-- 内容框架 / Content Frame -->
+            <Frame x:Name="ContentFrame">
+                <!-- 移除页面切换动画以提升性能 / Remove page transition animations for better performance -->
+                <!-- 默认内容：欢迎页面 / Default Content: Welcome Page -->
+                <ScrollViewer>
+                    <StackPanel Spacing="20">
+                        <!-- 欢迎信息 / Welcome Message -->
+                        <TextBlock Text="欢迎使用 lunagalLauncher"
+                                   FontSize="28"
+                                   FontWeight="Bold"/>
+
+                        <TextBlock Text="这是一个 Windows 应用启动器 + 鼠标映射工具"
+                                   FontSize="16"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                        <!-- 功能卡片 / Feature Cards -->
+                        <Grid ColumnSpacing="16" RowSpacing="16" Margin="0,20,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- 应用管理卡片 / App Management Card -->
+                            <Border Grid.Row="0" Grid.Column="0"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="20">
+                                <StackPanel Spacing="12">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8B7;" FontSize="32" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                    <TextBlock Text="应用管理" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="管理启动应用列表，支持一键启动所有应用"
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- llama 服务卡片 / llama Service Card -->
+                            <Border Grid.Row="0" Grid.Column="1"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="20">
+                                <StackPanel Spacing="12">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE950;" FontSize="32" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                    <TextBlock Text="llama 服务" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="集成 llama 服务，支持实时日志查看"
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 鼠标映射卡片 / Mouse Mapping Card -->
+                            <Border Grid.Row="1" Grid.Column="0"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="20">
+                                <StackPanel Spacing="12">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE962;" FontSize="32" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                    <TextBlock Text="鼠标映射" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="自定义鼠标按键映射，支持短按/长按判定"
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 日志卡片 / Log Card -->
+                            <Border Grid.Row="1" Grid.Column="1"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="20">
+                                <StackPanel Spacing="12">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8F4;" FontSize="32" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                    <TextBlock Text="日志" FontSize="18" FontWeight="SemiBold"/>
+                                    <TextBlock Text="查看应用程序运行日志"
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- 快速开始提示 / Quick Start Tip -->
+                        <InfoBar Title="快速开始"
+                                 Message="点击左侧菜单开始配置您的应用程序，或点击导航栏底部的「Go！」启动所有已配置的应用。"
+                                 Severity="Informational"
+                                 IsOpen="True"
+                                 IsClosable="True"
+                                 Margin="0,20,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Frame>
+        </NavigationView>
+    </Grid>
+</Page>
