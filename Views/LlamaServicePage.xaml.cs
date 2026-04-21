@@ -3,7 +3,6 @@ using System.Numerics;
 using lunagalLauncher.Core;
 using lunagalLauncher.Data;
 using lunagalLauncher.Utils;
-using Microsoft.UI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -2527,139 +2526,8 @@ namespace lunagalLauncher.Views
         }
 
         // FindVisualChildren<T> 已集中到 Utils.VisualTreeExtensions（通过文件顶部 using static 裸调）。
-
-        /// <summary>
-        /// 服务状态改变事件处理
-        /// Service status changed event handler
-        /// </summary>
-        private void OnServiceStatusChanged(object? sender, LlamaServiceStatus status)
-        {
-            // 如果页面已卸载，不处理事件
-            // If page is unloaded, don't handle event
-            if (_isUnloaded)
-            {
-                return;
-            }
-
-            try
-        {
-            // 在 UI 线程上更新状态
-            // Update status on UI thread
-                DispatcherQueue?.TryEnqueue(() =>
-                {
-                    // 再次检查页面是否已卸载
-                    // Check again if page is unloaded
-                    if (!_isUnloaded)
-            {
-                UpdateUIStatus(status);
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "更新服务状态时发生错误: {Message}", ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// 更新 UI 状态
-        /// Updates UI status based on service status
-        /// </summary>
-        private void UpdateUIStatus(LlamaServiceStatus status)
-        {
-            string statusText = "";
-
-            switch (status)
-            {
-                case LlamaServiceStatus.NotStarted:
-                    statusText = "未启动";
-                    StatusText.Text = statusText;
-                    StatusIndicator.Fill = new SolidColorBrush(Colors.Gray);
-                    StartButton.IsEnabled = true;
-                    StopButton.IsEnabled = false;
-                    RestartButton.IsEnabled = false;
-                    break;
-
-                case LlamaServiceStatus.Starting:
-                    statusText = "正在启动";
-                    StatusText.Text = statusText;
-                    StatusIndicator.Fill = new SolidColorBrush(Colors.Orange);
-                    StartButton.IsEnabled = false;
-                    StopButton.IsEnabled = false;
-                    RestartButton.IsEnabled = false;
-                    break;
-
-                case LlamaServiceStatus.Running:
-                    statusText = "运行中";
-                    StatusText.Text = statusText;
-                    StatusIndicator.Fill = new SolidColorBrush(Colors.Green);
-                    StartButton.IsEnabled = false;
-                    StopButton.IsEnabled = true;
-                    RestartButton.IsEnabled = true;
-                    break;
-
-                case LlamaServiceStatus.Stopping:
-                    statusText = "正在停止";
-                    StatusText.Text = statusText;
-                    StatusIndicator.Fill = new SolidColorBrush(Colors.Orange);
-                    StartButton.IsEnabled = false;
-                    StopButton.IsEnabled = false;
-                    RestartButton.IsEnabled = false;
-                    break;
-
-                case LlamaServiceStatus.Stopped:
-                    statusText = "已停止";
-                    StatusText.Text = statusText;
-                    StatusIndicator.Fill = new SolidColorBrush(Colors.Gray);
-                    StartButton.IsEnabled = true;
-                    StopButton.IsEnabled = false;
-                    RestartButton.IsEnabled = false;
-                    break;
-
-                case LlamaServiceStatus.Error:
-                    statusText = "错误";
-                    StatusText.Text = statusText;
-                    StatusIndicator.Fill = new SolidColorBrush(Colors.Red);
-                    StartButton.IsEnabled = true;
-                    StopButton.IsEnabled = false;
-                    RestartButton.IsEnabled = false;
-                    break;
-            }
-
-            Log.Debug("UI 状态已更新: {Status}", status);
-        }
-
-        /// <summary>
-        /// 显示错误对话框
-        /// Shows error dialog
-        /// </summary>
-        private async Task ShowErrorDialogAsync(string title, string content)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = title,
-                Content = content,
-                CloseButtonText = "确定",
-                XamlRoot = this.XamlRoot
-            };
-            await dialog.ShowAsync();
-        }
-
-        /// <summary>
-        /// 显示成功对话框
-        /// Shows success dialog
-        /// </summary>
-        private async Task ShowSuccessDialogAsync(string title, string content)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = title,
-                Content = content,
-                CloseButtonText = "确定",
-                XamlRoot = this.XamlRoot
-            };
-            await dialog.ShowAsync();
-        }
+        // OnServiceStatusChanged / UpdateUIStatus → LlamaServicePage.ServiceStatusUi.cs
+        // ShowErrorDialogAsync / ShowSuccessDialogAsync → LlamaServicePage.Dialogs.cs
 
         /// <summary>
         /// 端口文本改变事件（键盘输入）- 与 ± 按钮一致走 SaveConfiguration

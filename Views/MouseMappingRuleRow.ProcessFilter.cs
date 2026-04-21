@@ -1,3 +1,4 @@
+using lunagalLauncher.Strings;
 using lunagalLauncher.Utils;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Input;
@@ -97,13 +98,7 @@ namespace lunagalLauncher.Views
             }
             if (remove.Count == 0)
             {
-                _ = await new ContentDialog
-                {
-                    Title = "提示",
-                    Content = "请先勾选要删除的过滤名单项",
-                    CloseButtonText = "确定",
-                    XamlRoot = XamlRoot
-                }.ShowAsync();
+                await UiDialogs.ShowAlertAsync(XamlRoot, DialogMessages.PromptTitle, DialogMessages.SelectFilterItemsToDelete);
                 return;
             }
 
@@ -119,10 +114,7 @@ namespace lunagalLauncher.Views
         {
             try
             {
-                bool dropdownWasOpen = ProcessDropdown.IsOpen;
-                ProcessDropdown.IsOpen = false;
-                await Task.Yield();
-                await Task.Delay(dropdownWasOpen ? 550 : 0);
+                await CustomDropdownModalPrep.CloseIfOpenAndWaitForAnimationAsync(ProcessDropdown);
 
                 if (!App.TryGetMainWindowHandle(out var hwnd))
                 {

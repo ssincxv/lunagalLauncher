@@ -192,11 +192,30 @@
 - Visual Studio 2022（含 **使用 C++ 的桌面开发** 与 **Windows 应用 SDK / WinUI** 相关工作负载）或等价环境  
 - 目标框架：`net10.0-windows10.0.19041.0`
 
+**解决方案与项目文件：**
+
+| 文件 | 说明 |
+|------|------|
+| [`lunagalLauncher.csproj`](lunagalLauncher.csproj) | 单一源码与 NuGet 入口；**命令行推荐**直接对该文件 `dotnet build` / `dotnet run`（见下）。 |
+| [`lunagalLauncher.sln`](lunagalLauncher.sln) | 经典 SLN，与 VS / Rider 兼容；本仓库仅含一个项目，与直接构建 csproj 等价。 |
+| [`lunagalLauncher.slnx`](lunagalLauncher.slnx) | **Visual Studio 17.10+** 的稀疏解决方案格式；若你使用的 IDE 不支持，请改用 `.sln` 或打开 `.csproj`。 |
+
+**约定：** 日常脚本与 CI 以 **`lunagalLauncher.csproj`** 为准可避免「当前目录下多个解决方案」导致 CLI 歧义；本地开发任选 `.sln` / `.slnx` / 直接开工程均可。
+
 **命令行构建：**
+
+WinAppSDK 自包含等对平台的约束下，建议显式指定 **x64**：
+
+```powershell
+dotnet restore lunagalLauncher.csproj
+dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64
+```
+
+若仍使用解决方案文件：
 
 ```powershell
 dotnet restore lunagalLauncher.sln
-dotnet build lunagalLauncher.sln -c Debug
+dotnet build lunagalLauncher.sln -c Debug -p:Platform=x64
 ```
 
 典型输出路径：
@@ -214,6 +233,8 @@ Core/        # 启动、GPU/模型扫描、llama 服务管理
 Views/       # 各功能页面
 Services/    # 输入模拟、鼠标映射引擎等
 Data/        # 配置模型与持久化
+Utils/       # 文件对话框、UI 辅助、视觉树工具等
+Strings/     # 多处复用的对话框短文案（集中常量；完整本地化见后续 .resw）
 docs/        # 开发与删改记录类文档
 ```
 

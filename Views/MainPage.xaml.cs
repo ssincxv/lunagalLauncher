@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using lunagalLauncher.Core;
 using lunagalLauncher.Services;
+using lunagalLauncher.Strings;
 using lunagalLauncher.Utils;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
@@ -413,13 +414,7 @@ namespace lunagalLauncher.Views
                 await File.WriteAllTextAsync(path, json);
                 Log.Information("已导出完整设置到 {Path}", path);
 
-                _ = await new ContentDialog
-                {
-                    Title = "导出成功",
-                    Content = $"已导出全部设置到：\n{path}",
-                    CloseButtonText = "确定",
-                    XamlRoot = XamlRoot
-                }.ShowAsync();
+                await UiDialogs.ShowAlertAsync(XamlRoot, "导出成功", $"已导出全部设置到：\n{path}");
             }
             catch (Exception ex)
             {
@@ -500,13 +495,7 @@ namespace lunagalLauncher.Views
 
                 RefreshUiAfterFullConfigImport();
 
-                _ = await new ContentDialog
-                {
-                    Title = "导入成功",
-                    Content = "已应用备份中的全部设置，界面已按当前配置刷新。",
-                    CloseButtonText = "确定",
-                    XamlRoot = XamlRoot
-                }.ShowAsync();
+                await UiDialogs.ShowAlertAsync(XamlRoot, "导入成功", "已应用备份中的全部设置，界面已按当前配置刷新。");
             }
             catch (Exception ex)
             {
@@ -624,16 +613,8 @@ namespace lunagalLauncher.Views
             return await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, filter, "选择完整设置备份");
         }
 
-        private async Task ShowBackupMessageAsync(string title, string message)
-        {
-            _ = await new ContentDialog
-            {
-                Title = title,
-                Content = message,
-                CloseButtonText = "确定",
-                XamlRoot = XamlRoot
-            }.ShowAsync();
-        }
+        private Task ShowBackupMessageAsync(string title, string message) =>
+            UiDialogs.ShowAlertAsync(XamlRoot, title, message);
 
         /// <summary>
         /// 启动所有应用程序的核心逻辑
@@ -660,14 +641,10 @@ namespace lunagalLauncher.Views
                 {
                     Log.Warning("没有配置任何应用程序");
 
-                    var noAppsDialog = new ContentDialog
-                    {
-                        Title = "提示",
-                        Content = "您还没有配置任何应用程序。\n请先在「应用管理」中添加应用。",
-                        CloseButtonText = "确定",
-                        XamlRoot = this.XamlRoot
-                    };
-                    await noAppsDialog.ShowAsync();
+                    await UiDialogs.ShowAlertAsync(
+                        XamlRoot,
+                        DialogMessages.PromptTitle,
+                        "您还没有配置任何应用程序。\n请先在「应用管理」中添加应用。");
                     return;
                 }
 
@@ -720,14 +697,7 @@ namespace lunagalLauncher.Views
                         dialogContent += $"• {result.AppConfig.Name}: {result.ErrorMessage}\n";
                     }
 
-                    var dialog = new ContentDialog
-                    {
-                        Title = dialogTitle,
-                        Content = dialogContent,
-                        CloseButtonText = "确定",
-                        XamlRoot = this.XamlRoot
-                    };
-                    await dialog.ShowAsync();
+                    await UiDialogs.ShowAlertAsync(XamlRoot, dialogTitle, dialogContent);
                 }
             }
             catch (Exception ex)
@@ -738,14 +708,7 @@ namespace lunagalLauncher.Views
 
                 // 显示错误提示
                 // Show error notification
-                var dialog = new ContentDialog
-                {
-                    Title = "启动失败",
-                    Content = $"启动应用时发生错误：{ex.Message}",
-                    CloseButtonText = "确定",
-                    XamlRoot = this.XamlRoot
-                };
-                await dialog.ShowAsync();
+                await UiDialogs.ShowAlertAsync(XamlRoot, "启动失败", $"启动应用时发生错误：{ex.Message}");
             }
             finally
             {
@@ -815,17 +778,13 @@ namespace lunagalLauncher.Views
                     // via LlamaServicePage after resolving the underlying error.
                     Log.Warning("llama 服务启动失败，相关翻译功能可能不可用");
 
-                    var dialog = new ContentDialog
-                    {
-                        Title = "llama 服务启动失败",
-                        Content =
-                            "llama 服务未能启动或未在预期时间内开放 HTTP 端点，\n" +
-                            "LunaTranslator 等依赖本地 Sakura API 的功能可能无法使用。\n\n" +
-                            "可前往「llama 服务」页面查看日志并手动重试。",
-                        CloseButtonText = "继续启动其它应用",
-                        XamlRoot = this.XamlRoot
-                    };
-                    await dialog.ShowAsync();
+                    await UiDialogs.ShowAlertAsync(
+                        XamlRoot,
+                        "llama 服务启动失败",
+                        "llama 服务未能启动或未在预期时间内开放 HTTP 端点，\n" +
+                        "LunaTranslator 等依赖本地 Sakura API 的功能可能无法使用。\n\n" +
+                        "可前往「llama 服务」页面查看日志并手动重试。",
+                        "继续启动其它应用");
                 }
                 else
                 {

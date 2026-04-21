@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using lunagalLauncher.Core;
 using lunagalLauncher.Data;
+using lunagalLauncher.Strings;
 using lunagalLauncher.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
@@ -610,14 +611,11 @@ namespace lunagalLauncher.Views
             {
                 Log.Error(ex, "添加应用失败: {Message}", ex.Message);
 
-                var dialog = new ContentDialog
-                {
-                    Title = "添加失败",
-                    Content = $"添加应用时发生错误：{ex.Message}",
-                    CloseButtonText = "确定",
-                    XamlRoot = GetDialogXamlRoot()
-                };
-                await dialog.ShowAsync(ContentDialogPlacement.Popup);
+                await UiDialogs.ShowAlertAsync(
+                    GetDialogXamlRoot(),
+                    "添加失败",
+                    $"添加应用时发生错误：{ex.Message}",
+                    ContentDialogPlacement.Popup);
             }
         }
 
@@ -646,14 +644,11 @@ namespace lunagalLauncher.Views
                     // Check if already running
                     if (_launchManager != null && _launchManager.IsLaunchTargetAlreadyRunning(app))
                     {
-                        var dialog = new ContentDialog
-                        {
-                            Title = "提示",
-                            Content = $"应用「{app.Name}」已经在运行中。",
-                            CloseButtonText = "确定",
-                            XamlRoot = GetDialogXamlRoot()
-                        };
-                        await dialog.ShowAsync(ContentDialogPlacement.Popup);
+                        await UiDialogs.ShowAlertAsync(
+                            GetDialogXamlRoot(),
+                            DialogMessages.PromptTitle,
+                            $"应用「{app.Name}」已经在运行中。",
+                            ContentDialogPlacement.Popup);
                         return;
                     }
 
@@ -686,14 +681,11 @@ namespace lunagalLauncher.Views
             {
                 Log.Error(ex, "启动应用失败: {Message}", ex.Message);
 
-                var dialog = new ContentDialog
-                {
-                    Title = "启动失败",
-                    Content = $"启动应用时发生错误：{ex.Message}",
-                    CloseButtonText = "确定",
-                    XamlRoot = GetDialogXamlRoot()
-                };
-                await dialog.ShowAsync(ContentDialogPlacement.Popup);
+                await UiDialogs.ShowAlertAsync(
+                    GetDialogXamlRoot(),
+                    "启动失败",
+                    $"启动应用时发生错误：{ex.Message}",
+                    ContentDialogPlacement.Popup);
             }
         }
 
@@ -725,14 +717,11 @@ namespace lunagalLauncher.Views
             {
                 Log.Error(ex, "编辑应用失败: {Message}", ex.Message);
 
-                var dialog = new ContentDialog
-                {
-                    Title = "编辑失败",
-                    Content = $"编辑应用时发生错误：{ex.Message}",
-                    CloseButtonText = "确定",
-                    XamlRoot = GetDialogXamlRoot()
-                };
-                await dialog.ShowAsync(ContentDialogPlacement.Popup);
+                await UiDialogs.ShowAlertAsync(
+                    GetDialogXamlRoot(),
+                    "编辑失败",
+                    $"编辑应用时发生错误：{ex.Message}",
+                    ContentDialogPlacement.Popup);
             }
         }
 
@@ -982,14 +971,7 @@ namespace lunagalLauncher.Views
                     HideOverlay();
                     Log.Error(ex, "保存编辑应用失败: {Message}", ex.Message);
                     tcs.TrySetResult(false);
-                    var errDialog = new ContentDialog
-                    {
-                        Title = "保存失败",
-                        Content = ex.Message,
-                        CloseButtonText = "确定",
-                        XamlRoot = GetDialogXamlRoot()
-                    };
-                    await errDialog.ShowAsync(ContentDialogPlacement.Popup);
+                    await UiDialogs.ShowAlertAsync(GetDialogXamlRoot(), "保存失败", ex.Message, ContentDialogPlacement.Popup);
                 }
             };
 
@@ -1069,14 +1051,11 @@ namespace lunagalLauncher.Views
             {
                 Log.Error(ex, "删除应用失败: {Message}", ex.Message);
 
-                var dialog = new ContentDialog
-                {
-                    Title = "删除失败",
-                    Content = $"删除应用时发生错误：{ex.Message}",
-                    CloseButtonText = "确定",
-                    XamlRoot = GetDialogXamlRoot()
-                };
-                await dialog.ShowAsync(ContentDialogPlacement.Popup);
+                await UiDialogs.ShowAlertAsync(
+                    GetDialogXamlRoot(),
+                    "删除失败",
+                    $"删除应用时发生错误：{ex.Message}",
+                    ContentDialogPlacement.Popup);
             }
         }
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using lunagalLauncher.Data;
 using lunagalLauncher.Infrastructure;
 using lunagalLauncher.Services;
+using lunagalLauncher.Strings;
 using lunagalLauncher.Utils;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Input;
@@ -595,13 +596,7 @@ namespace lunagalLauncher.Views
             }
             if (remove.Count == 0)
             {
-                _ = await new ContentDialog
-                {
-                    Title = "提示",
-                    Content = "请先勾选要删除的过滤名单项",
-                    CloseButtonText = "确定",
-                    XamlRoot = XamlRoot
-                }.ShowAsync();
+                await UiDialogs.ShowAlertAsync(XamlRoot, DialogMessages.PromptTitle, DialogMessages.SelectFilterItemsToDelete);
                 return;
             }
 
@@ -617,12 +612,7 @@ namespace lunagalLauncher.Views
         {
             try
             {
-                // CustomDropdown 收起动画最长约 500ms（Controls/CustomDropdown.cs MAX_DURATION）；
-                // 若下拉曾打开，必须在动画结束后再模态 comdlg32，否则会与 Popup 合成冲突（界面错位、「正在处理…」）。
-                bool dropdownWasOpen = GlobalProcessDropdown.IsOpen;
-                GlobalProcessDropdown.IsOpen = false;
-                await Task.Yield();
-                await Task.Delay(dropdownWasOpen ? 550 : 0);
+                await CustomDropdownModalPrep.CloseIfOpenAndWaitForAnimationAsync(GlobalProcessDropdown);
 
                 if (!App.TryGetMainWindowHandle(out var hwnd))
                 {

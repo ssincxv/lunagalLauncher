@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using lunagalLauncher.Infrastructure;
+using lunagalLauncher.Utils;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Media;
@@ -840,14 +841,7 @@ namespace lunagalLauncher.Views
             {
                 Log.Error(ex, "打开日志文件夹失败: {Message}", ex.Message);
 
-                var dialog = new ContentDialog
-                {
-                    Title = "打开失败",
-                    Content = $"打开日志文件夹时发生错误：{ex.Message}",
-                    CloseButtonText = "确定",
-                    XamlRoot = this.XamlRoot
-                };
-                await dialog.ShowAsync();
+                await UiDialogs.ShowAlertAsync(XamlRoot, "打开失败", $"打开日志文件夹时发生错误：{ex.Message}");
             }
         }
 

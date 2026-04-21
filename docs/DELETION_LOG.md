@@ -773,3 +773,25 @@ rg '_isTapProcessing' --glob '*.cs' --glob '*.xaml'
 
 - `dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64` → **0 警告，0 错误**
 
+---
+---
+
+# 第六轮：冗余优化计划落地
+
+**日期**: 2026-04-21
+
+## 代码
+
+- 新增 [`Utils/CustomDropdownModalPrep.cs`](../Utils/CustomDropdownModalPrep.cs)：`CloseIfOpenAndWaitForAnimationAsync`，与 `CustomDropdown` 收起后再打开 comdlg 的流程对齐；[`Views/MouseMappingPage.xaml.cs`](../Views/MouseMappingPage.xaml.cs)、[`Views/MouseMappingRuleRow.ProcessFilter.cs`](../Views/MouseMappingRuleRow.ProcessFilter.cs) 已使用。
+- 新增 [`Utils/UiDialogs.cs`](../Utils/UiDialogs.cs)：单按钮 `ContentDialog`；替换 [`MainPage`](../Views/MainPage.xaml.cs)、[`AppManagementPage`](../Views/AppManagementPage.xaml.cs)、[`LogViewerPage`](../Views/LogViewerPage.xaml.cs) 等处内联对话框。
+- 拆分 Llama 页面：[`Views/LlamaServicePage.ServiceStatusUi.cs`](../Views/LlamaServicePage.ServiceStatusUi.cs)、[`Views/LlamaServicePage.Dialogs.cs`](../Views/LlamaServicePage.Dialogs.cs)；主文件 [`LlamaServicePage.xaml.cs`](../Views/LlamaServicePage.xaml.cs) 删除对应成员。
+- 新增 [`Strings/DialogMessages.cs`](../Strings/DialogMessages.cs)：多处复用的短字符串常量。
+
+## 文档
+
+- [`README.md`](../README.md)：说明 `csproj` / `sln` / `slnx` 与推荐 `dotnet build -p:Platform=x64`；仓库结构补充 `Utils/`、`Strings/`。
+
+## 验证
+
+- `dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64` → **0 警告，0 错误**
+
