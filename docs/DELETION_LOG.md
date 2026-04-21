@@ -645,3 +645,70 @@ rg '_isTapProcessing' --glob '*.cs' --glob '*.xaml'
 **清理执行者**: Cursor Agent (Opus 4.7)
 **清理结果**: ✅ **完全成功**（Debug 编译 0 警告 0 错误）
 
+---
+---
+
+# 第三轮清理 (Third Cleanup Round)
+**清理日期**: 2026-04-21
+**执行者**: Cursor Agent
+**项目类型**: C#/.NET 10 WinUI 3（无 `package.json`，不适用 knip / depcheck / ts-prune / eslint）
+
+---
+
+## 分析阶段（等价于指定工具链）
+
+| 指定工具 | 本项目状态 | 等价分析手段 | 本轮结果 |
+|---------|------------|--------------|----------|
+| knip | 未运行（无 Node 项目） | `rg` 全仓库引用搜索 + `dotnet build` 警告 | 未发现未用文件；发现 1 个未注册转换器类 |
+| depcheck | 未运行 | 对照 `lunagalLauncher.csproj` 中 `PackageReference` 与源码 `using` / API 使用 | 全部 NuGet 包均有使用（含 `Serilog.Sinks.Async` 于 `LoggerManager.WriteTo.Async`） |
+| ts-prune | 不适用 | Roslyn：`dotnet build` 输出为 0 警告 | 无 ts/ts-prune |
+| eslint（未用禁用指令） | 不适用 | `rg "#pragma warning"` 于手写源码目录（Controls、Core、Views、Services 等） | **0 处**（仅 `obj/` 内 XAML 生成物含 pragma） |
+
+**构建命令**（WinAppSDK 需显式平台）:
+
+`dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64`
+
+**测试结果**: 解决方案仅含单一应用项目，`dotnet test lunagalLauncher.sln` 无测试项目可执行（退出码 0，无测试输出）。
+
+---
+
+## 风险评估
+
+| 删除项 | 级别 | 理由 |
+|--------|------|------|
+| `Converters/BoolToVisibilityConverter.cs` | **SAFE** | `rg "BoolToVisibility"` 在 `*.xaml` / `*.cs` 中仅命中本文件；`App.xaml` 与各 `Views\*.xaml` 均未声明 `xmlns` 或 `StaticResource` 引用该类；WinUI 已提供 `Microsoft.UI.Xaml.Controls` 布尔可见性模式，本类为完全孤立实现 |
+
+---
+
+## 安全删除记录
+
+### 删除文件：`Converters/BoolToVisibilityConverter.cs`
+
+- **内容**: `BoolToVisibilityConverter` 类（`IValueConverter`，bool ↔ `Visibility`）。
+- **理由**: 全项目无任何 XAML 或 C# 引用；非编译器/XAML 生成所必需。
+- **验证**:
+  1. `rg "BoolToVisibility"` → 仅定义处（删除前）
+  2. `dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64` → **0 警告，0 错误**
+  3. `dotnet test lunagalLauncher.sln` → 无测试项目
+
+### Git
+
+- 工作区原先无 `.git`；已执行 `git init`。
+- **提交 1**: `chore: initial commit (baseline before dead code cleanup)`（基线，含将被删文件）
+- **提交 2**: `chore(dead-code): remove unused BoolToVisibilityConverter`（仅删除上述文件并更新本日志）
+
+**回滚**: `git revert HEAD` 或 `git checkout HEAD~1 -- Converters/BoolToVisibilityConverter.cs`
+
+---
+
+## 本轮未动项（CAREFUL / RISKY 或未确认）
+
+- **NuGet 依赖**: 全部为 **RISKY** 级变更，需逐包验证；本轮 **未移除**任何包引用。
+- **反射 / 字符串类型名**: 未发现对 `BoolToVisibilityConverter` 的字符串引用。
+- **动态加载**: 无不适用场景。
+
+---
+
+**清理完成时间**: 2026-04-21
+**清理结果**: ✅ 构建通过；Git 原子提交已按删除操作拆分
+
