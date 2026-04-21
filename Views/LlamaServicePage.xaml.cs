@@ -18,6 +18,7 @@ using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml.Hosting;
 using System.Numerics;
 using Microsoft.UI.Dispatching;
+using lunagalLauncher;
 
 namespace lunagalLauncher.Views
 {
@@ -1505,14 +1506,12 @@ namespace lunagalLauncher.Views
         {
             try
             {
-                var app = (App)App.Current;
-                if (app?.window == null)
+                if (!App.TryGetMainWindowHandle(out var hwnd))
                 {
                     Log.Error("无法获取应用程序窗口实例");
                     return null;
                 }
 
-                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(app.window);
                 Log.Debug("打开文件对话框（Win32）: {Title}, InitialDir={Dir}", title, initialDirectory ?? "(默认桌面)");
                 return await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, filter, title, initialDirectory);
             }

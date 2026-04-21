@@ -712,3 +712,35 @@ rg '_isTapProcessing' --glob '*.cs' --glob '*.xaml'
 **清理完成时间**: 2026-04-21
 **清理结果**: ✅ 构建通过；Git 原子提交已按删除操作拆分
 
+---
+---
+
+# 第四轮：重复模式收敛（hwnd 获取）
+
+**日期**: 2026-04-21  
+**类型**: 冗余逻辑收敛（非删除依赖）
+
+## 问题
+
+多处页面与 `MouseMappingEngine` 重复以下模式：`(App)App.Current` / `Application.Current is App` → 判空 `window` → `WindowNative.GetWindowHandle`，增加维护成本且易产生不一致。
+
+## 改动
+
+- 在 `App` 上新增 **`App.TryGetMainWindowHandle(out IntPtr hwnd)`**（`App.xaml.cs`），集中封装 `WinRT.Interop.WindowNative.GetWindowHandle` 与空窗口判断。
+- 替换以下调用点（行为等价：失败时仍按原分支记录 Error/Warning/return）：
+  - `Views/MainPage.xaml.cs` — 备份路径选择
+  - `Views/AppManagementPage.xaml.cs` — 添加应用、编辑模态内图标/路径浏览
+  - `Views/MouseMappingPage.xaml.cs` — Raw Input 预安装、全局 exe 浏览
+  - `Views/MouseMappingRuleRow.ProcessFilter.cs` — 规则内 exe 浏览
+  - `Views/LlamaServicePage.xaml.cs` — `ShowFilePickerAsync`
+  - `Services/MouseMappingEngine.cs` — Raw Input 桥接安装
+- 上述文件中凡仅因 `WindowNative` 而存在的 **`using WinRT.Interop`** 已移除。
+
+## 验证
+
+- `dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64` → **0 警告，0 错误**
+
+## 风险
+
+- **SAFE**：逻辑等价于原「非 App / `window` 为 null 则不取 HWND」判断。
+

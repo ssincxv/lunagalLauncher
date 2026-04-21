@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using lunagalLauncher;
 using lunagalLauncher.Utils;
 using static lunagalLauncher.Utils.VisualTreeExtensions;
 using Microsoft.UI.Dispatching;
@@ -11,8 +12,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Serilog;
 using Windows.UI;
-using WinRT.Interop;
-
 namespace lunagalLauncher.Views
 {
     /// <summary>
@@ -132,14 +131,12 @@ namespace lunagalLauncher.Views
                 await Task.Yield();
                 await Task.Delay(dropdownWasOpen ? 550 : 0);
 
-                var app = (App)App.Current;
-                if (app?.window == null)
+                if (!App.TryGetMainWindowHandle(out var hwnd))
                 {
                     Log.Warning("浏览 exe：主窗口为空");
                     return;
                 }
 
-                var hwnd = WindowNative.GetWindowHandle(app.window);
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(_processItems);
                 string? path = await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, "可执行文件|*.exe", "选择要加入列表的程序", initDir);
 

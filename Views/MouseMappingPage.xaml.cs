@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using lunagalLauncher;
 using lunagalLauncher.Data;
 using lunagalLauncher.Infrastructure;
 using lunagalLauncher.Services;
@@ -18,8 +19,6 @@ using Microsoft.UI.Xaml.Media;
 using Newtonsoft.Json;
 using Serilog;
 using Windows.UI;
-using WinRT.Interop;
-
 namespace lunagalLauncher.Views
 {
     /// <summary>
@@ -202,10 +201,8 @@ namespace lunagalLauncher.Views
 
                 try
                 {
-                    var app = (App)App.Current;
-                    if (app?.window != null)
+                    if (App.TryGetMainWindowHandle(out var hwnd))
                     {
-                        var hwnd = WindowNative.GetWindowHandle(app.window);
                         Log.Debug("{Scope} 正在为 HWND 预安装 Raw Input 桥接", LogScope);
                         RawInputMouseBridge.EnsureInstalled(hwnd);
                         Log.Information("{Scope} Raw Input 桥接已确保安装", LogScope);
@@ -637,14 +634,12 @@ namespace lunagalLauncher.Views
                 await Task.Yield();
                 await Task.Delay(dropdownWasOpen ? 550 : 0);
 
-                var app = (App)App.Current;
-                if (app?.window == null)
+                if (!App.TryGetMainWindowHandle(out var hwnd))
                 {
                     Log.Warning("{Scope} 浏览 exe 时主窗口为空", LogScope);
                     return;
                 }
 
-                var hwnd = WindowNative.GetWindowHandle(app.window);
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(_globalProcessItems);
                 string? path = await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, "可执行文件|*.exe", "选择要加入全局列表的程序", initDir);
 

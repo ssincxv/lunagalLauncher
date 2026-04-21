@@ -14,8 +14,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Serilog;
-using WinRT.Interop;
-
 namespace lunagalLauncher.Views
 {
     /// <summary>
@@ -614,27 +612,23 @@ namespace lunagalLauncher.Views
         private async Task<string?> PickSaveFullBackupPathAsync()
         {
             const string suggested = "lunagalLauncher-full-backup.json";
-            var app = (App)Application.Current;
-            if (app?.window == null)
+            if (!App.TryGetMainWindowHandle(out var hwnd))
             {
                 Log.Error("无法获取应用程序窗口实例");
                 return null;
             }
 
-            var hwnd = WindowNative.GetWindowHandle(app.window);
             return await Win32FileDialog.ShowSaveFileDialogAsync(hwnd, "JSON (*.json)|*.json", "导出完整设置", suggested);
         }
 
         private async Task<string?> PickOpenFullBackupPathAsync()
         {
-            var app = (App)Application.Current;
-            if (app?.window == null)
+            if (!App.TryGetMainWindowHandle(out var hwnd))
             {
                 Log.Error("无法获取应用程序窗口实例");
                 return null;
             }
 
-            var hwnd = WindowNative.GetWindowHandle(app.window);
             const string filter = "JSON (*.json)|*.json";
             return await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, filter, "选择完整设置备份");
         }

@@ -7,6 +7,7 @@ using lunagalLauncher.Infrastructure;
 using lunagalLauncher.Data;
 using lunagalLauncher.Core;
 using Serilog;
+using WinRT.Interop;
 
 namespace lunagalLauncher
 {
@@ -42,6 +43,18 @@ namespace lunagalLauncher
 
         /// <summary>为 true 时表示便携模式（exe 旁存在 portable / portable.txt，配置在 setting\config.json）。</summary>
         public static bool IsPortableMode => AppStoragePaths.IsPortableMode;
+
+        /// <summary>
+        /// 主窗口 Win32 HWND（供 IFileDialog、Raw Input 等）。窗口未创建或 <see cref="Application.Current"/> 非 <see cref="App"/> 时返回 false。
+        /// </summary>
+        public static bool TryGetMainWindowHandle(out IntPtr hwnd)
+        {
+            hwnd = default;
+            if (Current is not App app || app.window is null)
+                return false;
+            hwnd = WindowNative.GetWindowHandle(app.window);
+            return true;
+        }
 
         /// <summary>
         /// 初始化单例应用程序对象

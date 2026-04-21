@@ -8,7 +8,6 @@ using lunagalLauncher.Data;
 using lunagalLauncher;
 using Microsoft.UI.Dispatching;
 using Serilog;
-using WinRT.Interop;
 
 namespace lunagalLauncher.Services
 {
@@ -192,11 +191,8 @@ namespace lunagalLauncher.Services
             {
                 try
                 {
-                    if (Microsoft.UI.Xaml.Application.Current is App app && app.window != null)
-                    {
-                        var hwnd = WindowNative.GetWindowHandle(app.window);
+                    if (App.TryGetMainWindowHandle(out var hwnd))
                         RawInputMouseBridge.EnsureInstalled(hwnd);
-                    }
                 }
                 catch (Exception ex)
                 {

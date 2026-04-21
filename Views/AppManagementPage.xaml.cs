@@ -10,11 +10,10 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Dispatching;
 using Serilog;
 using Windows.UI;
+using lunagalLauncher;
 using lunagalLauncher.Data;
 using lunagalLauncher.Core;
 using lunagalLauncher.Utils;
-using WinRT.Interop;
-
 namespace lunagalLauncher.Views
 {
     /// <summary>
@@ -549,14 +548,12 @@ namespace lunagalLauncher.Views
             {
                 Log.Information("用户点击「添加应用」按钮");
 
-                var launcher = (App)App.Current;
-                if (launcher?.window == null)
+                if (!App.TryGetMainWindowHandle(out var hwnd))
                 {
                     Log.Error("无法获取应用程序窗口实例");
                     return;
                 }
 
-                var hwnd = WindowNative.GetWindowHandle(launcher.window);
                 var filePath = await Win32FileDialog.ShowOpenFileDialogAsync(
                     hwnd,
                     "可执行文件|*.exe;*.bat;*.cmd|所有文件|*.*",
@@ -831,9 +828,7 @@ namespace lunagalLauncher.Views
 
             browseIconButton.Click += async (_, _) =>
             {
-                var launcher = (App)App.Current;
-                if (launcher?.window == null) return;
-                var hwnd = WindowNative.GetWindowHandle(launcher.window);
+                if (!App.TryGetMainWindowHandle(out var hwnd)) return;
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(new[] { iconPathTextBox.Text });
                 var filePath = await Win32FileDialog.ShowOpenFileDialogAsync(
                     hwnd,
@@ -879,9 +874,7 @@ namespace lunagalLauncher.Views
 
             browsePathButton.Click += async (_, _) =>
             {
-                var launcher = (App)App.Current;
-                if (launcher?.window == null) return;
-                var hwnd = WindowNative.GetWindowHandle(launcher.window);
+                if (!App.TryGetMainWindowHandle(out var hwnd)) return;
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(new[] { pathTextBox.Text });
                 var filePath = await Win32FileDialog.ShowOpenFileDialogAsync(
                     hwnd,
