@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "lunagalLauncher (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "lunagalLauncher (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

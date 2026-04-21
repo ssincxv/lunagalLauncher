@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Read(//c/Users/fasdg/Desktop/c/**)",
+      "Bash(xargs:*)"
+    ]
+  }
+}

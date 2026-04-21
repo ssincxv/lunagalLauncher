@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="lunagalLauncher.Views.MouseMappingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:data="using:lunagalLauncher.Data"
+    xmlns:local="using:lunagalLauncher.Views"
+    xmlns:controls="using:lunagalLauncher.Controls"
+    xmlns:conv="using:lunagalLauncher.Converters"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <conv:ExePathToIconImageSourceConverter x:Key="ExePathToIconImageSourceConverter"/>
+    </Page.Resources>
+
+    <!--
+      浅底；导出/导入全量设置仍在主导航「Go!」下方。
+      布局与日志页一致：首行「标题区 | 快捷操作」，下方分区卡片，避免工具栏与内容区纵向堆叠松散。
+    -->
+    <Page.Background>
+        <SolidColorBrush Color="#FAFAFA"/>
+    </Page.Background>
+
+    <Grid Padding="24" RowSpacing="20" Background="Transparent">
+        <Grid.RowDefinitions>
+            <!-- 页眉：标题+页级开关 | 添加规则（固定不随内容滚动） -->
+            <RowDefinition Height="Auto"/>
+            <!-- 全局进程过滤 + 映射规则：同一纵向滚动区，避免底部卡片在视口外却无滚动条 -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!--
+          标题与总开关同一横向 StackPanel、均 VerticalAlignment=Center，相对整块垂直居中；
+          避免分列时 TextBlock 与 ToggleSwitch 布局盒高度不一致导致开关看起来偏上。已去掉负顶边距。
+        -->
+        <Grid Grid.Row="0" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        Spacing="12"
+                        VerticalAlignment="Center">
+                <TextBlock Text="鼠标映射"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+                <ToggleSwitch x:Name="GlobalEnabledSwitch"
+                              VerticalAlignment="Center"
+                              OnContent="开"
+                              OffContent="关"
+                              MinWidth="0"
+                              AutomationProperties.Name="鼠标映射总开关"/>
+            </StackPanel>
+            <Button x:Name="AddRuleButton"
+                    Grid.Column="2"
+                    MinHeight="36"
+                    Padding="14,8"
+                    CornerRadius="10"
+                    VerticalAlignment="Center"
+                    Click="AddRuleButton_Click"
+                    ToolTipService.ToolTip="新增一条鼠标映射规则">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE710;" FontSize="16"/>
+                    <TextBlock Text="添加规则" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Background="Transparent">
+            <StackPanel Spacing="20" HorizontalAlignment="Stretch">
+        <!-- 全局进程过滤：标题与开关同排，展开后再显示模式与名单（减少首屏噪音） -->
+        <Border
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+            <StackPanel Spacing="14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="全局进程过滤"
+                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                               VerticalAlignment="Center"/>
+                    <ToggleSwitch x:Name="GlobalProcessFilterSwitch"
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    OnContent="开"
+                                    OffContent="关"
+                                    MinWidth="0"/>
+                </Grid>
+
+                <StackPanel x:Name="GlobalProcessFilterDetailsPanel" Spacing="12" Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="过滤模式" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                        <controls:CustomDropdown x:Name="GlobalContextModeDropdown" PlaceholderText="选择模式" MaxDropDownHeight="200"
+                                                 IsReadOnly="True" HorizontalAlignment="Stretch">
+                            <controls:CustomDropdown.Content>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="180" Padding="16,12,16,12">
+                                    <ItemsRepeater x:Name="GlobalContextModeDropdownItems">
+                                        <ItemsRepeater.Layout><StackLayout Orientation="Vertical"/></ItemsRepeater.Layout>
+                                        <ItemsRepeater.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="12,8"
+                                                        Tapped="GlobalContextModeDropdownItem_Tapped"
+                                                        PointerEntered="GlobalDropdownItemBorder_PointerEntered"
+                                                        PointerExited="GlobalDropdownItemBorder_PointerExited">
+                                                    <TextBlock Text="{Binding}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsRepeater.ItemTemplate>
+                                    </ItemsRepeater>
+                                </ScrollViewer>
+                            </controls:CustomDropdown.Content>
+                        </controls:CustomDropdown>
+                    </StackPanel>
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="过滤名单" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                        <Grid ColumnSpacing="8" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <controls:CustomDropdown x:Name="GlobalProcessDropdown"
+                                                     PlaceholderText="在下拉中勾选或浏览添加；路径仅显示在过滤名单内"
+                                                     IsReadOnly="True" MaxDropDownHeight="420" HorizontalAlignment="Stretch">
+                                <controls:CustomDropdown.Content>
+                                    <StackPanel MaxHeight="420">
+                                        <ScrollViewer x:Name="GlobalProcessListScrollViewer"
+                                                      VerticalAlignment="Top"
+                                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                                      MaxHeight="320" Padding="24,12,24,8">
+                                            <!-- 使用 ItemsControl+StackPanel，避免 ItemsRepeater 虚拟化在批量勾选后错误测量导致顶部大块空白 -->
+                                            <ItemsControl x:Name="GlobalProcessItemsControl"
+                                                          VerticalAlignment="Top"
+                                                          HorizontalAlignment="Stretch"
+                                                          HorizontalContentAlignment="Stretch">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Vertical"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="8,6"
+                                                                Tapped="GlobalProcessItemBorder_Tapped"
+                                                                PointerEntered="GlobalProcessItemBorder_PointerEntered"
+                                                                PointerExited="GlobalProcessItemBorder_PointerExited">
+                                                            <Grid ColumnSpacing="5">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <CheckBox Grid.Column="0" VerticalAlignment="Center"
+                                                                          MinWidth="0" Padding="0" Margin="0,0,8,0"
+                                                                          IsHitTestVisible="False" Tag="{Binding}"/>
+                                                                <Image Grid.Column="1" Width="20" Height="20" VerticalAlignment="Center" Stretch="Uniform"
+                                                                       Source="{Binding Converter={StaticResource ExePathToIconImageSourceConverter}}"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding}" VerticalAlignment="Center"
+                                                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineHeight="20"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="16,6,16,6"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="9" HorizontalAlignment="Center" Margin="24,0,24,12">
+                                            <Button Click="GlobalProcessSelectAll_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
+                                                <StackPanel Orientation="Horizontal" Spacing="3">
+                                                    <TextBlock Text="✓" FontSize="11.5"/>
+                                                    <TextBlock Text="全选"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="GlobalProcessClearChecks_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
+                                                <StackPanel Orientation="Horizontal" Spacing="3">
+                                                    <TextBlock Text="✗" FontSize="11.5"/>
+                                                    <TextBlock Text="清空"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="GlobalProcessDeleteSelected_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
+                                                <StackPanel Orientation="Horizontal" Spacing="3">
+                                                    <TextBlock Text="🗑" FontSize="11.5"/>
+                                                    <TextBlock Text="删除"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </controls:CustomDropdown.Content>
+                            </controls:CustomDropdown>
+                            <Button Grid.Column="1" MinHeight="32" Padding="10,0,12,0" CornerRadius="4" VerticalAlignment="Stretch"
+                                    Click="GlobalBrowseExe_Click" ToolTipService.ToolTip="浏览并添加可执行文件">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70F;" FontSize="16"/>
+                                    <TextBlock Text="浏览…" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 全局：光标在任务栏/屏幕边缘时不应用任何映射规则（引擎读 MouseMappingConfig 全局字段） -->
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,8,0,0"/>
+                <StackPanel Orientation="Horizontal" Spacing="24">
+                    <ToggleSwitch x:Name="GlobalDisableOnTaskbarSwitch"
+                                  Header="任务栏区域禁用"
+                                  OnContent="是"
+                                  OffContent="否"
+                                  VerticalAlignment="Center"/>
+                    <ToggleSwitch x:Name="GlobalDisableOnScreenEdgesSwitch"
+                                  Header="屏幕边缘禁用"
+                                  OnContent="是"
+                                  OffContent="否"
+                                  VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 映射规则：与全局过滤同一滚动区；不用 ListView 以免内嵌 ScrollViewer 与外层抢滚动 -->
+        <Border Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+            <StackPanel Spacing="12">
+                <TextBlock Text="映射规则" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                <!--
+                    规则列表：从 ItemsControl 改为 ItemsRepeater + StackLayout（方案 C Phase 2）。
+                    ItemsRepeater 在外层 ScrollViewer 内自动做容器虚拟化——只实例化视口内 + 缓冲区的 3-5 行
+                    （每行都是重控件 MouseMappingRuleRow：6 个 CustomDropdown + 7 个 TextBox + 12 个 Button）。
+                    对比旧 ItemsControl 一次性展开 N 行，启动/切入开销从 O(N) 降到 O(3-5)。
+                    注意：ItemsRepeater 没有 ListView 那样的 ItemContainer，直接实例化 DataTemplate 根元素，
+                    所以 FlushAllRuleRowsFromUi 等"遍历所有已实例化行"的代码要改用 TryGetElement(i)。
+                -->
+                <ItemsRepeater x:Name="RulesListView"
+                               Background="Transparent"
+                               HorizontalAlignment="Stretch">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Vertical" Spacing="0"/>
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="data:MouseMappingRule" x:DefaultBindMode="OneTime">
+                            <StackPanel Spacing="8" Margin="0,0,0,12">
+                                <local:MouseMappingRuleRow Rule="{x:Bind}" HorizontalAlignment="Stretch"/>
+                                <Button Content="删除此规则"
+                                        Click="DeleteRuleButton_Click"
+                                        Tag="{x:Bind Id}"
+                                        HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </StackPanel>
+        </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

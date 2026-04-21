@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+        <OutputType>WinExe</OutputType>
+
+        <!-- WinUI 3 -->
+        <UseWinUI>true</UseWinUI>
+        <EnableMsixTooling>true</EnableMsixTooling>
+        <WindowsPackageType>None</WindowsPackageType>
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+
+        <!-- Project Options -->
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>lunagalLauncher</RootNamespace>
+
+        <!-- App Options -->
+        <UseRidGraph>true</UseRidGraph>
+        <Platforms>x86;x64;ARM64</Platforms>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+        <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+
+        <!--
+          .NET 8+ 默认关闭 built-in COM interop，导致 `Type.GetTypeFromCLSID`、
+          `Activator.CreateInstance(comType)`、以及 `[MarshalAs(UnmanagedType.Interface)]` 出参
+          全部抛 "Built-in COM has been disabled via a feature switch"。
+          本项目使用 IFileOpenDialog / IFileSaveDialog（COM）作为文件对话框实现（见 Utils/Win32FileDialog.cs），
+          必须显式启用 built-in COM 支持，否则浏览按钮点击后不会弹出任何窗口。
+          参考：https://aka.ms/dotnet-illink/com
+        -->
+        <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+
+        <!--
+          禁用 XAML 编译器自动生成的 Program.Main，改用我们自己写的（见 Program.cs）。
+          主进程直接启动 WinUI 3 App，不再走 helper 子进程模式；历史版本曾为规避 shell
+          扩展 AV 引入过 pick-file / pick-save / prewarm 类子进程，但 .NET CLR 冷启动 200-500ms
+          延迟体验不佳，已改为主进程直接调 IFileOpenDialog + 进程级 LL 鼠标钩子吞右键，
+          见 Utils/Win32FileDialog.cs。
+        -->
+        <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <RuntimeHostConfigurationOption Include="System.Runtime.InteropServices.BuiltInComInterop.IsSupported" Value="true" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="Assets\SplashScreen.scale-200.png" />
+        <Content Include="Assets\LockScreenLogo.scale-200.png" />
+        <Content Include="Assets\Square150x150Logo.scale-200.png" />
+        <Content Include="Assets\Square44x44Logo.scale-200.png" />
+        <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+        <Content Include="Assets\StoreLogo.png" />
+        <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="lunagalLauncher.slnx" />
+    </ItemGroup>
+
+    <!-- 排除备份目录 -->
+    <ItemGroup>
+        <Compile Remove="备份*\**" />
+        <Compile Remove="澶囦唤*\**" />
+        <Page Remove="备份*\**" />
+        <Page Remove="澶囦唤*\**" />
+        <None Include="备份*\**" />
+        <None Include="澶囦唤*\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.*" />
+        <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.*" />
+
+        <Manifest Include="$(ApplicationManifest)" />
+
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+
+        <PackageReference Include="Serilog" Version="4.3.0" />
+
+        <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+
+        <!-- 文件日志异步落盘：UI 线程 Log.Information 入队即返回，避免同步 I/O 抢占渲染 -->
+        <PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
+
+        <PackageReference Include="System.Management" Version="10.0.2" />
+        
+        <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    </ItemGroup>
+
+    <!-- 
+        Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+        Tools extension to be activated for this project even if the Windows App SDK Nuget
+        package has not yet been restored.
+    -->
+    <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+        <ProjectCapability Include="Msix" />
+    </ItemGroup>
+
+    <!-- 
+        Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution 
+        Explorer "Package and Publish" context menu entry to be enabled for this project even if 
+        the Windows App SDK Nuget package has not yet been restored.
+    -->
+    <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+        <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+    </PropertyGroup>
+</Project>
