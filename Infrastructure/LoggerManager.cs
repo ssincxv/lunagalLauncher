@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using lunagalLauncher.Data;
 using Serilog;
 using Serilog.Events;

@@ -1,0 +1,27 @@
+# https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# 排序与冗余 using（IDE / dotnet format；要在 build 里报 IDE0005 需 GenerateDocumentationFile，见文末说明）
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# IDE0005: 删除未使用的 using / Remove unnecessary import
+dotnet_diagnostic.IDE0005.severity = warning
+
+# 可选：其它低风险 “简化/一致性” 规则（建议级，避免与现有风格大规模冲突）
+dotnet_diagnostic.IDE0001.severity = suggestion
+dotnet_diagnostic.IDE0002.severity = suggestion
+dotnet_diagnostic.IDE0036.severity = suggestion
+
+# 建议在提交前运行（或加入 CI）：
+# dotnet format style lunagalLauncher.csproj --diagnostics IDE0005
+# 若在 csproj 中设置 EnforceCodeStyleInBuild=true 且要在生成时启用 IDE0005，需同时 GenerateDocumentationFile=true（Roslyn #41640）。

@@ -1,24 +1,16 @@
-using System;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Numerics;
 using lunagalLauncher.Core;
 using lunagalLauncher.Data;
+using lunagalLauncher.Utils;
 using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Serilog;
-using lunagalLauncher.Utils;
 using static lunagalLauncher.Utils.VisualTreeExtensions;
-using Microsoft.UI.Composition;
-using Microsoft.UI.Xaml.Hosting;
-using System.Numerics;
-using Microsoft.UI.Dispatching;
-using lunagalLauncher;
 
 namespace lunagalLauncher.Views
 {

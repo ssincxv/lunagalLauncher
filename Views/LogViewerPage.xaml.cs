@@ -1,13 +1,8 @@
-using System;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+using lunagalLauncher.Infrastructure;
 using Microsoft.UI;
 using Microsoft.UI.Input;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
-using lunagalLauncher.Infrastructure;
 using Serilog;
 using Windows.System;
 using Windows.UI.Core;

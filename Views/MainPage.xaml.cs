@@ -1,17 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
-using lunagalLauncher;
 using lunagalLauncher.Core;
-using lunagalLauncher.Data;
 using lunagalLauncher.Services;
 using lunagalLauncher.Utils;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Serilog;
 namespace lunagalLauncher.Views

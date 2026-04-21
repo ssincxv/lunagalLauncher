@@ -1,14 +1,10 @@
-﻿using Microsoft.UI.Composition;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+﻿using System.Numerics;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Serilog;
-using System;
-using System.Numerics;
-using static lunagalLauncher.Utils.VisualTreeExtensions;
 
 namespace lunagalLauncher.Controls
 {

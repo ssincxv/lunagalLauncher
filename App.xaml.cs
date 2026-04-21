@@ -1,12 +1,11 @@
-using Microsoft.UI.Xaml.Controls;
+using lunagalLauncher.Core;
+using lunagalLauncher.Data;
+using lunagalLauncher.Infrastructure;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Windowing;
-using Windows.UI;
-using lunagalLauncher.Infrastructure;
-using lunagalLauncher.Data;
-using lunagalLauncher.Core;
 using Serilog;
+using Windows.UI;
 using WinRT.Interop;
 
 namespace lunagalLauncher

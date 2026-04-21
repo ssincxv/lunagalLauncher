@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using lunagalLauncher.Data;
 using Microsoft.UI.Dispatching;
 using Serilog;
 

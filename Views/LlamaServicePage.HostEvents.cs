@@ -1,11 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using lunagalLauncher.Utils;
-using static lunagalLauncher.Utils.VisualTreeExtensions;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Serilog;
+using static lunagalLauncher.Utils.VisualTreeExtensions;
 
 namespace lunagalLauncher.Views
 {

@@ -1,19 +1,12 @@
-using System;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+using lunagalLauncher.Core;
+using lunagalLauncher.Data;
+using lunagalLauncher.Utils;
 using Microsoft.UI;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Media;
 using Serilog;
 using Windows.UI;
-using lunagalLauncher;
-using lunagalLauncher.Data;
-using lunagalLauncher.Core;
-using lunagalLauncher.Utils;
 namespace lunagalLauncher.Views
 {
     /// <summary>

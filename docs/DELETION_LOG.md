@@ -411,8 +411,7 @@ dotnet clean
    - ✅ 代码库简洁
 
 3. **文档位置**:
-   - 分析报告: `docs/DEAD_CODE_ANALYSIS.md`
-   - 删除日志: `docs/DELETION_LOG.md`
+   - 删除与清理沿革（唯一维护中）: `docs/DELETION_LOG.md`（旧版独立分析报告已并入本文件及 Git 历史）
 
 4. **下一步建议**:
    - 实现未完成的功能（llama 服务、鼠标映射、设置页面）
@@ -743,4 +742,34 @@ rg '_isTapProcessing' --glob '*.cs' --glob '*.xaml'
 ## 风险
 
 - **SAFE**：逻辑等价于原「非 App / `window` 为 null 则不取 HWND」判断。
+
+---
+---
+
+# 第五轮：IDE 样式规则与文档快照合并
+
+**日期**: 2026-04-21
+
+## `.editorconfig`（IDE00xx）
+
+- 新增仓库根目录 **`.editorconfig`**：将 **IDE0005**（删除未使用 `using`）设为 **warning**，并附加 IDE0001 / IDE0002 / IDE0036 为 **suggestion**。
+- **说明**：在 **不** 设置 `GenerateDocumentationFile` 的前提下，Roslyn 不会在 `dotnet build` 中报告 IDE0005（见 [roslyn#41640](https://github.com/dotnet/roslyn/issues/41640)），因此 **未** 在 `csproj` 中启用 `EnforceCodeStyleInBuild`，避免无意义的 `EnableGenerateDocumentationFile` 生成警告。清理未使用 `using` 使用：
+
+  `dotnet format style lunagalLauncher.csproj --diagnostics IDE0005`
+
+- 已对上述命令覆盖到的 **`.cs` 文件** 运行格式化，移除冗余 `using`。
+
+## 合并 / 删除的快照 Markdown
+
+以下文件为历史会话快照，内容已由本 **`DELETION_LOG.md`** 各轮记录覆盖；为避免重复维护已 **删除**（可从 Git 历史恢复）：
+
+| 文件 | 说明 |
+|------|------|
+| `docs/DEAD_CODE_ANALYSIS.md` | 2026-01-29 分析快照 |
+| `docs/DEAD_CODE_ANALYSIS_2026-01-30.md` | 2026-01-30 分析快照 |
+| `docs/DELETION_LOG_2026-01-30.md` | 2026-01-30 删除日志快照 |
+
+## 验证
+
+- `dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64` → **0 警告，0 错误**
 
