@@ -1,4 +1,3 @@
-using System;
 using System.Collections.ObjectModel;
 using lunagalLauncher.Core;
 using lunagalLauncher.Data;
@@ -202,11 +201,11 @@ namespace lunagalLauncher.Views
             Log.Information("正在初始化应用管理页面...");
             this.InitializeComponent();
             LoadApplications();
-            
+
             // 启动状态更新定时器
             // Start status update timer
             StartStatusUpdateTimer();
-            
+
             Log.Information("应用管理页面初始化完成");
         }
 
@@ -218,7 +217,7 @@ namespace lunagalLauncher.Views
         public void SetLaunchManager(LaunchManager launchManager)
         {
             _launchManager = launchManager;
-            
+
             // 订阅事件
             // Subscribe to events
             if (_launchManager != null)
@@ -226,7 +225,7 @@ namespace lunagalLauncher.Views
                 _launchManager.LaunchStatusChanged += OnLaunchStatusChanged;
                 _launchManager.ProcessExited += OnProcessExited;
             }
-            
+
             // 立即更新一次状态
             // Update status immediately
             UpdateAllAppStatus();
@@ -257,15 +256,15 @@ namespace lunagalLauncher.Views
                 // 首先检查 LaunchManager 是否跟踪了这个进程
                 // First check if LaunchManager is tracking this process
                 bool isRunningInManager = _launchManager?.IsApplicationRunning(appItem.Id) ?? false;
-                
+
                 // 如果 LaunchManager 没有跟踪，检查系统中是否有该进程在运行
                 // If not tracked by LaunchManager, check if process is running in system
                 bool isRunningInSystem = ProcessDetector.IsProcessRunning(appItem.Path);
-                
+
                 // 只要有一个为 true，就认为是运行中
                 // If either is true, consider it as running
                 bool isRunning = isRunningInManager || isRunningInSystem;
-                
+
                 if (appItem.IsRunning != isRunning)
                 {
                     appItem.IsRunning = isRunning;
@@ -423,7 +422,7 @@ namespace lunagalLauncher.Views
                 SyncAppListEmptyChrome(AppItems.Count == 0);
 
                 Log.Information("已加载 {Count} 个应用程序", AppItems.Count);
-                
+
                 // 立即更新运行状态
                 // Update running status immediately
                 UpdateAllAppStatus();
@@ -684,7 +683,7 @@ namespace lunagalLauncher.Views
                         if (result.Status == LaunchStatus.Launched || result.Status == LaunchStatus.SkippedAlreadyRunning)
                         {
                             Log.Information("应用启动成功: {AppName}", app.Name);
-                            
+
                             // 更新状态
                             // Update status
                             UpdateAllAppStatus();

@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using lunagalLauncher.Utils;
 using Newtonsoft.Json;
 using Serilog;
 
@@ -89,15 +91,6 @@ namespace lunagalLauncher.Core
         private const int HEARTBEAT_TIMEOUT = 15000;
 
         /// <summary>
-        /// 就绪探测最大等待时间（毫秒）
-        /// 大模型（4B/7B）在低速磁盘上加载 + CUDA 预热 可能长达 2 分钟
-        /// Max readiness wait in ms. Large (4B/7B) models on slow disks plus
-        /// CUDA warm-up can take up to ~2 minutes before llama-server's HTTP
-        /// listener actually accepts connections.
-        /// </summary>
-        private const int READY_PROBE_TIMEOUT_MS = 120_000;
-
-        /// <summary>
         /// 就绪探测轮询间隔（毫秒）
         /// Polling interval (ms) used while waiting for HTTP readiness.
         /// </summary>
@@ -112,6 +105,19 @@ namespace lunagalLauncher.Core
         {
             Timeout = TimeSpan.FromSeconds(2) // 单次探测超时
         };
+
+        /// <summary>
+        /// 最近一次 HTTP 就绪探测的状态码与 URL（超时或失败时写入日志）
+        /// </summary>
+        private int _lastReadinessHttpStatus;
+
+        private string _lastReadinessHttpUrl = string.Empty;
+
+        private readonly object _stderrRingLock = new object();
+
+        private readonly List<string> _recentLlamaStderrLines = new List<string>();
+
+        private const int MaxRecentLlamaStderrLines = 40;
 
         /// <summary>
         /// 全局单例实例（由 MainPage「一键开启」和 LlamaServicePage 共享）
@@ -274,17 +280,34 @@ namespace lunagalLauncher.Core
                 args.Append($" -a \"{modelName}\"");
             }
 
-            // Flash Attention
-            if (config.FlashAttention)
+            // Flash Attention：新版 --help 含 on|off|auto → -fa on|off；否则裸 -fa，且 --no-mmap 须在 -fa 前（避免中间版误吞参数）。
+            bool triStateFa = !config.LegacyFlashAttnCli &&
+                              LlamaServerFlashAttnCliProbe.UsesTriStateOnOffAuto(config.ServicePath);
+            if (triStateFa)
             {
-                args.Append(" -fa");
+                args.Append(config.FlashAttention ? " -fa on" : " -fa off");
+                if (config.NoMmap)
+                {
+                    args.Append(" --no-mmap");
+                }
+            }
+            else
+            {
+                if (config.NoMmap)
+                {
+                    args.Append(" --no-mmap");
+                }
+
+                if (config.FlashAttention)
+                {
+                    args.Append(" -fa");
+                }
             }
 
-            // No Mmap
-            if (config.NoMmap)
-            {
-                args.Append(" --no-mmap");
-            }
+            Log.Information(
+                "Flash Attention 参数模式: {Mode}（LegacyFlashAttnCli={Legacy}）",
+                triStateFa ? "新版 -fa on|off" : "兼容（--no-mmap 先于裸 -fa）",
+                config.LegacyFlashAttnCli);
 
             // 日志格式
             // Log format
@@ -356,7 +379,7 @@ namespace lunagalLauncher.Core
 
                     // 如果有手动指定的 GPU 索引，使用手动指定的
                     // If manual GPU index is specified, use it
-                    if (!string.IsNullOrWhiteSpace(config.ManualGpuIndex) && 
+                    if (!string.IsNullOrWhiteSpace(config.ManualGpuIndex) &&
                         int.TryParse(config.ManualGpuIndex, out int manualIndex))
                     {
                         gpuIndex = manualIndex;
@@ -395,7 +418,9 @@ namespace lunagalLauncher.Core
                 // Start process
                 Log.Information("正在启动 llama 服务进程...");
                 Log.Information("命令: {FileName} {Arguments}", startInfo.FileName, startInfo.Arguments);
-                
+
+                ClearRecentLlamaStderr();
+
                 _serviceProcess = Process.Start(startInfo);
 
                 if (_serviceProcess == null)
@@ -422,6 +447,7 @@ namespace lunagalLauncher.Core
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
+                        AppendRecentLlamaStderr(e.Data);
                         Log.Warning("[llama-server] {Error}", e.Data);
                         ParamsOutputDataReceived?.Invoke(this, e.Data);
                     }
@@ -435,11 +461,20 @@ namespace lunagalLauncher.Core
                 // readiness for large models (e.g. GalTransl-v4-4B ≈ 4-5s,
                 // Sakura-14B 可达 30-60s) and caused downstream consumers
                 // (LunaTranslator 等) 在服务尚未 listen 时就发起请求而对接失败。
-                Log.Information("等待 llama 服务 HTTP 端点就绪...");
+                int probeSec = config.ReadyProbeTimeoutSeconds;
+                if (probeSec <= 0)
+                {
+                    probeSec = 120;
+                }
+
+                probeSec = Math.Clamp(probeSec, 30, 900);
+                int readinessTimeoutMs = probeSec * 1000;
+
+                Log.Information("等待 llama 服务 HTTP 端点就绪（最长 {Seconds} 秒）...", probeSec);
                 bool ready = await WaitForHttpReadyAsync(
                     config.Host,
                     config.Port,
-                    READY_PROBE_TIMEOUT_MS,
+                    readinessTimeoutMs,
                     _cancellationTokenSource.Token);
 
                 if (!ready)
@@ -448,9 +483,26 @@ namespace lunagalLauncher.Core
                     // Timed out. The process may still be loading the model
                     // but we refuse to report Running unless we can reach
                     // the HTTP listener, to avoid silent downstream failures.
+                    if (_serviceProcess != null && _serviceProcess.HasExited)
+                    {
+                        Log.Error(
+                            "llama HTTP 就绪失败：进程已退出，退出码={ExitCode}。近期 stderr:{Stderr}",
+                            _serviceProcess.ExitCode,
+                            FormatRecentLlamaStderrSnapshot());
+                    }
+                    else
+                    {
+                        Log.Error(
+                            "llama HTTP 就绪失败：在 {TimeoutSeconds} 秒内未就绪，最后 HTTP {LastStatus}，URL {LastUrl}",
+                            probeSec,
+                            _lastReadinessHttpStatus,
+                            _lastReadinessHttpUrl);
+                    }
+
                     throw new TimeoutException(
-                        $"llama 服务在 {READY_PROBE_TIMEOUT_MS / 1000} 秒内未开放 HTTP 端点 " +
-                        $"http://{config.Host}:{config.Port}/ ，可能模型过大或加载失败");
+                        $"llama 服务在 {probeSec} 秒内未就绪 " +
+                        $"(http://{config.Host}:{config.Port}/ ，最后探测: {_lastReadinessHttpStatus} {_lastReadinessHttpUrl})。" +
+                        "可能模型过大、加载失败或参数不兼容；请查看日志与 llama-server 输出。");
                 }
 
                 // 更新状态
@@ -475,12 +527,39 @@ namespace lunagalLauncher.Core
             }
         }
 
+        private void ClearRecentLlamaStderr()
+        {
+            lock (_stderrRingLock)
+            {
+                _recentLlamaStderrLines.Clear();
+            }
+        }
+
+        private void AppendRecentLlamaStderr(string line)
+        {
+            lock (_stderrRingLock)
+            {
+                _recentLlamaStderrLines.Add(line);
+                while (_recentLlamaStderrLines.Count > MaxRecentLlamaStderrLines)
+                {
+                    _recentLlamaStderrLines.RemoveAt(0);
+                }
+            }
+        }
+
+        private string FormatRecentLlamaStderrSnapshot()
+        {
+            lock (_stderrRingLock)
+            {
+                return _recentLlamaStderrLines.Count == 0
+                    ? "(无 stderr 捕获)"
+                    : string.Join(Environment.NewLine, _recentLlamaStderrLines);
+            }
+        }
+
         /// <summary>
-        /// 主动轮询 llama-server 的 HTTP 端点，直到返回 2xx/4xx（只要能响应即视为已绑定端口）
-        /// Actively polls the llama-server HTTP endpoint until it responds.
-        /// A successful TCP connect followed by any HTTP response (even 404)
-        /// means the server is accepting traffic; at that point LunaTranslator
-        /// / Sakura translator 等客户端可以稳定对接。
+        /// 主动轮询 llama-server：优先 GET /health（200 = 模型已加载），否则回退 GET /v1/models（2xx）。
+        /// 加载中 /health 常为 503，不视为就绪，继续轮询直至超时。
         /// </summary>
         /// <param name="host">主机地址 / Bind host (may be 0.0.0.0 - probe loopback in that case)</param>
         /// <param name="port">端口 / TCP port</param>
@@ -501,9 +580,12 @@ namespace lunagalLauncher.Core
                 probeHost = "127.0.0.1";
             }
 
+            string healthUrl = $"http://{probeHost}:{port}/health";
             string modelsUrl = $"http://{probeHost}:{port}/v1/models";
             var sw = Stopwatch.StartNew();
             int attempt = 0;
+            _lastReadinessHttpStatus = 0;
+            _lastReadinessHttpUrl = string.Empty;
 
             while (sw.ElapsedMilliseconds < timeoutMs && !token.IsCancellationRequested)
             {
@@ -513,8 +595,10 @@ namespace lunagalLauncher.Core
                 // Early exit: if the process already died, abandon readiness check.
                 if (_serviceProcess != null && _serviceProcess.HasExited)
                 {
-                    Log.Warning("就绪探测中止：服务进程已退出 (退出代码: {ExitCode})",
-                        _serviceProcess.ExitCode);
+                    Log.Warning(
+                        "就绪探测中止：服务进程已退出 (退出代码: {ExitCode})。近期 stderr:{Stderr}",
+                        _serviceProcess.ExitCode,
+                        FormatRecentLlamaStderrSnapshot());
                     return false;
                 }
 
@@ -524,13 +608,18 @@ namespace lunagalLauncher.Core
                 try
                 {
                     using var tcp = new TcpClient();
-                    var connectTask = tcp.ConnectAsync(probeHost, port);
-                    var winner = await Task.WhenAny(connectTask, Task.Delay(1000, token));
-                    if (winner != connectTask || !tcp.Connected)
-                    {
-                        await DelayBetweenProbesAsync(token);
-                        continue;
-                    }
+                    using var probeCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    probeCts.CancelAfter(1000);
+                    await tcp.ConnectAsync(probeHost, port, probeCts.Token);
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    await DelayBetweenProbesAsync(token);
+                    continue;
                 }
                 catch
                 {
@@ -538,43 +627,101 @@ namespace lunagalLauncher.Core
                     continue;
                 }
 
-                // TCP 通了之后再做一次 HTTP GET /v1/models 以确认 OpenAI 兼容层已就绪
-                // Once TCP is up, confirm the OpenAI-compatible layer is alive by
-                // actually issuing GET /v1/models. This matches what LunaTranslator
-                // does as its first request, so success here guarantees对接可用.
+                bool httpReady = false;
                 try
                 {
-                    using var resp = await _readinessClient.GetAsync(
+                    httpReady = await TryHttpReadinessOnceAsync(
+                        healthUrl,
                         modelsUrl,
-                        HttpCompletionOption.ResponseHeadersRead,
+                        sw.ElapsedMilliseconds,
+                        attempt,
                         token);
-                    // 任意响应都视为就绪：llama-server 在加载期间可能返回 503，
-                    // 但一旦进入主循环会立刻变为 200。这里不看 body，只看状态码。
-                    // Any response counts as "HTTP layer alive"; llama-server may
-                    // return 503 while still warming, so we additionally require
-                    // success status to avoid lying to the caller.
-                    if (resp.IsSuccessStatusCode)
-                    {
-                        Log.Information(
-                            "✅ llama 服务就绪 (耗时: {Elapsed}ms, 探测次数: {Attempt}, URL: {Url})",
-                            sw.ElapsedMilliseconds, attempt, modelsUrl);
-                        return true;
-                    }
-                    Log.Debug("HTTP 探测返回 {Status}，继续等待...", (int)resp.StatusCode);
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
-                    // 典型场景：模型仍在加载，HTTP 监听线程还没起来
-                    // Typical: model is still loading, HTTP thread not yet spun up.
-                    Log.Verbose("HTTP 探测失败 (第 {Attempt} 次): {Message}", attempt, ex.Message);
+                    Log.Verbose(ex, "HTTP 就绪探测异常 (第 {Attempt} 次)", attempt);
+                }
+
+                if (httpReady)
+                {
+                    return true;
                 }
 
                 await DelayBetweenProbesAsync(token);
             }
 
-            Log.Warning("⏱ 就绪探测超时 ({Timeout}ms, 共 {Attempt} 次尝试)", timeoutMs, attempt);
+            Log.Warning(
+                "⏱ 就绪探测超时 ({Timeout}ms, 共 {Attempt} 次尝试)，最后 HTTP {LastStatus} @ {LastUrl}",
+                timeoutMs,
+                attempt,
+                _lastReadinessHttpStatus,
+                _lastReadinessHttpUrl);
             return false;
+        }
+
+        /// <summary>
+        /// TCP 已通：先 GET /health（200 就绪；503 继续等）；404 或异常时再 GET /v1/models（2xx 就绪）。
+        /// </summary>
+        private async Task<bool> TryHttpReadinessOnceAsync(
+            string healthUrl,
+            string modelsUrl,
+            long elapsedMs,
+            int attempt,
+            CancellationToken token)
+        {
+            try
+            {
+                using (var h = await _readinessClient.GetAsync(healthUrl, HttpCompletionOption.ResponseHeadersRead, token))
+                {
+                    _lastReadinessHttpStatus = (int)h.StatusCode;
+                    _lastReadinessHttpUrl = healthUrl;
+                    if (h.StatusCode == HttpStatusCode.OK)
+                    {
+                        Log.Information(
+                            "✅ llama 服务就绪 (耗时: {Elapsed}ms, 探测次数: {Attempt}, GET /health)",
+                            elapsedMs,
+                            attempt);
+                        return true;
+                    }
+
+                    if (h.StatusCode == HttpStatusCode.ServiceUnavailable)
+                    {
+                        Log.Debug("GET /health 返回 503，模型可能仍在加载…");
+                        return false;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Verbose(ex, "GET /health 异常或失败，尝试 GET /v1/models");
+                _lastReadinessHttpUrl = healthUrl;
+                _lastReadinessHttpStatus = 0;
+            }
+
+            using (var m = await _readinessClient.GetAsync(modelsUrl, HttpCompletionOption.ResponseHeadersRead, token))
+            {
+                _lastReadinessHttpStatus = (int)m.StatusCode;
+                _lastReadinessHttpUrl = modelsUrl;
+                if (m.IsSuccessStatusCode)
+                {
+                    Log.Information(
+                        "✅ llama 服务就绪 (耗时: {Elapsed}ms, 探测次数: {Attempt}, GET /v1/models 回退)",
+                        elapsedMs,
+                        attempt);
+                    return true;
+                }
+
+                Log.Debug("GET /v1/models 返回 {Status}，继续等待…", (int)m.StatusCode);
+                return false;
+            }
         }
 
         /// <summary>

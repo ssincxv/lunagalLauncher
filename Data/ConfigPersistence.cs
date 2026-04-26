@@ -284,6 +284,7 @@ namespace lunagalLauncher.Data
                 },
                 MouseMapping = new MouseMappingConfig
                 {
+                    GlobalExcludeWindowsShellUi = true,
                     LeftClick = new LeftClickConfig
                     {
                         Enabled = true,

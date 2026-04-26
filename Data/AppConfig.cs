@@ -110,6 +110,12 @@ namespace lunagalLauncher.Data
         public int Port { get; set; } = 8080;
 
         /// <summary>
+        /// HTTP 就绪探测总超时（秒）。默认 120；建议 30～900。旧配置缺失或为 0 时按 120 处理。
+        /// Total seconds to wait for llama-server HTTP readiness (GET /health or /v1/models fallback).
+        /// </summary>
+        public int ReadyProbeTimeoutSeconds { get; set; } = 120;
+
+        /// <summary>
         /// GPU 层数 (-ngl)
         /// Number of GPU layers (-ngl)
         /// </summary>
@@ -132,6 +138,12 @@ namespace lunagalLauncher.Data
         /// Enable Flash Attention (-fa)
         /// </summary>
         public bool FlashAttention { get; set; } = true;
+
+        /// <summary>
+        /// 旧版 llama-server：仅接受裸 -fa 开关，不支持 -fa on|off|auto。
+        /// 勾选后对启用 FA 只追加「 -fa」，关闭时不传参（与旧启动器行为一致）。
+        /// </summary>
+        public bool LegacyFlashAttnCli { get; set; } = false;
 
         /// <summary>
         /// 是否禁用内存映射 (--no-mmap)
@@ -237,6 +249,12 @@ namespace lunagalLauncher.Data
         public int Port { get; set; } = 8080;
 
         /// <summary>
+        /// HTTP 就绪探测总超时（秒）
+        /// HTTP readiness probe timeout in seconds
+        /// </summary>
+        public int ReadyProbeTimeoutSeconds { get; set; } = 120;
+
+        /// <summary>
         /// GPU 层数
         /// GPU layers
         /// </summary>
@@ -258,6 +276,11 @@ namespace lunagalLauncher.Data
         /// Flash Attention
         /// </summary>
         public bool FlashAttention { get; set; } = true;
+
+        /// <summary>
+        /// Use legacy -fa CLI (bare flag only)
+        /// </summary>
+        public bool LegacyFlashAttnCli { get; set; } = false;
 
         /// <summary>
         /// No Mmap
@@ -436,6 +459,12 @@ namespace lunagalLauncher.Data
 
         /// <summary>全局：光标在屏幕边缘（约 4px）时，不应用任何鼠标映射规则。</summary>
         public bool GlobalDisableOnScreenEdges { get; set; }
+
+        /// <summary>
+        /// 全局：在 Windows 内置壳层进程（资源管理器、此电脑、开始菜单相关、系统设置、照片等）上不应用鼠标映射。
+        /// 新建配置默认为开启；关闭后可在上述界面也使用自定义映射。
+        /// </summary>
+        public bool GlobalExcludeWindowsShellUi { get; set; } = true;
 
         /// <summary>
         /// 左键配置（旧版兼容，迁移后仍保留于 JSON）

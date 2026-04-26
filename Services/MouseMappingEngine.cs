@@ -1327,7 +1327,7 @@ namespace lunagalLauncher.Services
             if (matched.Trigger is MouseTriggerKind.DoubleClick or MouseTriggerKind.MultiClick)
                 _btn[b].UpSequence = 0;
 
-            
+
 
             if (!MayInterceptOriginalInput(matched, info.pt))
             {
@@ -1705,7 +1705,7 @@ namespace lunagalLauncher.Services
         internal static void NotifyRawMaskDown(uint risingMask)
         {
             if (risingMask == 0 || _config == null || !_config.GlobalEnabled) return;
-            for (uint m = risingMask; m != 0; )
+            for (uint m = risingMask; m != 0;)
             {
                 uint low = m & (uint)-(int)m;
                 RawMaskDownSingle(low);
@@ -1740,7 +1740,7 @@ namespace lunagalLauncher.Services
         internal static void NotifyRawMaskUp(uint fallingMask)
         {
             if (fallingMask == 0 || _config == null || !_config.GlobalEnabled) return;
-            for (uint m = fallingMask; m != 0; )
+            for (uint m = fallingMask; m != 0;)
             {
                 uint low = m & (uint)-(int)m;
                 RawMaskUpSingle(low);
@@ -1972,6 +1972,9 @@ namespace lunagalLauncher.Services
         /// </summary>
         private static bool ContextOk(MouseMappingRule rule, MouseInputNative.POINT pt)
         {
+            if (ShouldSkipForBuiltinWindowsShellUi(pt))
+                return false;
+
             bool globalOk = GlobalProcessContextOk(pt);
             bool ruleOk = RuleProcessContextOk(rule, pt);
 
@@ -2046,6 +2049,18 @@ namespace lunagalLauncher.Services
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 全局选项：在内置 Windows 壳层界面不映射（见 <see cref="MouseMappingConfig.GlobalExcludeWindowsShellUi"/>）。
+        /// </summary>
+        private static bool ShouldSkipForBuiltinWindowsShellUi(MouseInputNative.POINT pt)
+        {
+            var cfg = _config;
+            if (cfg == null || !cfg.GlobalExcludeWindowsShellUi)
+                return false;
+            string? exe = GetExePathForWindowAtPoint(pt);
+            return WindowsShellMouseMappingExclusions.IsWindowsShellUiProcess(exe);
         }
 
         /// <summary>光标下命中窗口所属进程的 exe 路径（进程白名单/黑名单匹配用）。</summary>

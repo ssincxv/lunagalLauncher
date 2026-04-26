@@ -130,21 +130,30 @@
                     <!-- 卡片标题 -->
                     <TextBlock Text="服务状态" Style="{StaticResource SubtitleTextBlockStyle}"/>
                     
-                    <!-- 状态指示器和文本 -->
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <!-- 
-                            状态指示器圆点
-                            - 灰色: 未启动
-                            - 绿色: 运行中
-                            - 红色: 已停止/错误
-                            - 黄色: 启动中/过渡状态
-                            由 Code-behind 动态更新颜色
-                        -->
-                        <Ellipse x:Name="StatusIndicator" Width="16" Height="16" Fill="Gray"/>
-                        
-                        <!-- 状态文本描述，由 Code-behind 动态更新 -->
-                        <TextBlock x:Name="StatusText" Text="未启动" VerticalAlignment="Center"/>
-                    </StackPanel>
+                    <!-- 状态指示器 + 文本；右侧为 llama-server 的 version 输出摘要 -->
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <!-- 
+                                状态指示器圆点
+                                - 灰色: 未启动
+                                - 绿色: 运行中
+                                - 红色: 已停止/错误
+                                - 黄色: 启动中/过渡状态
+                                由 Code-behind 动态更新颜色
+                            -->
+                            <Ellipse x:Name="StatusIndicator" Width="16" Height="16" Fill="Gray"/>
+                            <!-- 状态文本描述，由 Code-behind 动态更新 -->
+                            <TextBlock x:Name="StatusText" Text="未启动" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock x:Name="LlamaServerVersionText"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Text="-"
+                                   MaxWidth="360"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="13"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
@@ -223,21 +232,21 @@
                     - AccentButtonStyle: 使用强调色，表示这是主要操作
                     - Click 事件: StartButton_Click 处理服务启动逻辑
                 -->
-                <Button x:Name="StartButton" Content="启动服务" Click="StartButton_Click" Style="{StaticResource AccentButtonStyle}"/>
+                <Button x:Name="StartButton" Content="启动服务" Click="StartButton_Click" Style="{StaticResource AccentButtonStyle}" CornerRadius="12"/>
                 
                 <!-- 
                     停止按钮
                     - IsEnabled="False": 默认禁用，只有服务运行时才启用
                     - Click 事件: StopButton_Click 处理服务停止逻辑
                 -->
-                <Button x:Name="StopButton" Content="停止服务" Click="StopButton_Click" IsEnabled="False"/>
+                <Button x:Name="StopButton" Content="停止服务" Click="StopButton_Click" IsEnabled="False" CornerRadius="12"/>
                 
                 <!-- 
                     重启按钮
                     - IsEnabled="False": 默认禁用，只有服务运行时才启用
                     - Click 事件: RestartButton_Click 处理服务重启逻辑（先停止再启动）
                 -->
-                <Button x:Name="RestartButton" Content="重启服务" Click="RestartButton_Click" IsEnabled="False"/>
+                <Button x:Name="RestartButton" Content="重启服务" Click="RestartButton_Click" IsEnabled="False" CornerRadius="12"/>
             </StackPanel>
 
             <!-- 
@@ -376,7 +385,8 @@
                             Content="浏览..." 
                             Click="BrowseServiceButton_Click"
                             Grid.Column="1"
-                            VerticalAlignment="Center"/>
+                            VerticalAlignment="Center"
+                            CornerRadius="12"/>
                 </Grid>
             </StackPanel>
 
@@ -488,7 +498,8 @@
                     <Button x:Name="BrowseModelButton" 
                             Content="浏览..." 
                             Click="BrowseModelButton_Click"
-                            Grid.Column="1"/>
+                            Grid.Column="1"
+                            CornerRadius="12"/>
                 </Grid>
             </StackPanel>
 
@@ -601,7 +612,8 @@
                     <Button x:Name="SavePresetButton" 
                             Content="保存预设" 
                             Click="SavePresetButton_Click"
-                            Grid.Column="1"/>
+                            Grid.Column="1"
+                            CornerRadius="12"/>
                 </Grid>
             </StackPanel>
 
@@ -614,9 +626,13 @@
                         <ColumnDefinition Width="1*"/>
                         <ColumnDefinition Width="1*"/>
                     </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
                     
                     <!-- 主机地址 -->
-                    <StackPanel Grid.Column="0" Spacing="4">
+                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                         <TextBlock Text="主机地址 (--host)"/>
                         <controls:CustomDropdown x:Name="HostComboBox" 
                                                  PlaceholderText="选择或输入主机地址"
@@ -724,7 +740,7 @@
                     </StackPanel>
                     
                     <!-- 端口 -->
-                    <StackPanel Grid.Column="1" Spacing="4">
+                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
                         <TextBlock Text="端口 (--port)"/>
                         <Grid>
                             <Grid.RowDefinitions>
@@ -883,7 +899,7 @@
                     </StackPanel>
                     
                     <!-- 日志格式 -->
-                    <StackPanel Grid.Column="2" Spacing="4">
+                    <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4">
                         <TextBlock Text="日志格式 (--log-format)"/>
                         <controls:CustomDropdown x:Name="LogFormatComboBox" 
                                                  PlaceholderText="选择日志格式"
@@ -927,6 +943,17 @@
                                 </StackPanel>
                             </controls:CustomDropdown.Content>
                         </controls:CustomDropdown>
+                    </StackPanel>
+
+                    <!-- HTTP 就绪探测超时 -->
+                    <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Spacing="4">
+                        <TextBlock Text="HTTP 就绪超时 (秒，30–900)"/>
+                        <TextBox x:Name="ReadyProbeTimeoutTextBox"
+                                 Text="120"
+                                 PlaceholderText="默认 120"
+                                 MinHeight="32"
+                                 IsTextPredictionEnabled="False"
+                                 TextChanged="ReadyProbeTimeoutTextBox_TextChanged"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -1164,6 +1191,7 @@
                                     Content="🔄 刷新" 
                                     Click="RefreshGpuButton_Click"
                                     Grid.Column="1"
+                                    CornerRadius="12"
                                     ToolTipService.ToolTip="重新检测 GPU 硬件"/>
                         </Grid>
                     </StackPanel>
@@ -1520,6 +1548,11 @@
                     </StackPanel>
 
                     <CheckBox x:Name="FlashAttentionCheckBox" Content="启用 Flash Attention (-fa)" IsChecked="True"/>
+                    <CheckBox x:Name="LegacyFlashAttnCliCheckBox"
+                              Content="强制旧版 -fa（裸开关）。默认关闭：启动器根据 llama-server --help 自动选择 -fa on/off 或裸 -fa"
+                              IsChecked="False"
+                              Checked="LegacyFlashAttnCliCheckBox_Changed"
+                              Unchecked="LegacyFlashAttnCliCheckBox_Changed"/>
                     <CheckBox x:Name="NoMmapCheckBox" Content="禁用内存映射 (--no-mmap)" IsChecked="True"/>
                 </StackPanel>
             </StackPanel>

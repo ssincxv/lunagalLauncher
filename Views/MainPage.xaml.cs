@@ -415,13 +415,13 @@ namespace lunagalLauncher.Views
                 // 创建弹性恢复动画 - 使用 Spring 效果
                 var scaleAnimation = compositor.CreateVector3KeyFrameAnimation();
                 scaleAnimation.Duration = TimeSpan.FromMilliseconds(200);
-                
+
                 // 使用缓动函数实现弹性效果
                 var easingFunction = compositor.CreateCubicBezierEasingFunction(
                     new System.Numerics.Vector2(0.25f, 0.1f),
                     new System.Numerics.Vector2(0.25f, 1.0f)
                 );
-                
+
                 scaleAnimation.InsertKeyFrame(1.0f, new System.Numerics.Vector3(1.0f, 1.0f, 1.0f), easingFunction);
 
                 // 创建透明度恢复动画
@@ -771,7 +771,7 @@ namespace lunagalLauncher.Views
         /// 逻辑 (Logic):
         ///   1. 若 LlamaService.Enabled 为 false，跳过（用户显式禁用）
         ///   2. 若服务已处于 Running 状态 (用户在 LlamaServicePage 手动启动过)，直接返回
-        ///   3. 否则调用 <see cref="LlamaServiceManager.StartServiceAsync"/>，该方法内部
+        ///   3. 否则调用 <see cref="LlamaServiceManager.StartServiceAsync(Data.LlamaServiceConfig, Core.GpuDetector?)"/>，该方法内部
         ///      会轮询 /v1/models 直到真正可达才返回 true
         ///   4. 启动失败时弹窗但不阻断其余应用启动 — 避免"磁盘里没有模型"等个别问题拖垮整个一键开启
         /// </summary>
@@ -876,14 +876,14 @@ namespace lunagalLauncher.Views
                         case "AppManagement":
                             _lastNonActionNavTag = tag;
                             NavigateToPage(typeof(AppManagementPage));
-                            
+
                             // 传递 LaunchManager 给应用管理页面
                             // Pass LaunchManager to app management page
                             if (ContentFrame.Content is AppManagementPage appManagementPage)
                             {
                                 appManagementPage.SetLaunchManager(_launchManager);
                             }
-                            
+
                             Log.Information("已导航到应用管理页面");
                             break;
 

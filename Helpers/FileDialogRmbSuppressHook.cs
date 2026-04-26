@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
 
 namespace lunagalLauncher.Helpers;
 
@@ -39,8 +35,8 @@ internal interface IShellLinkWGetPath
 
 /// <summary>
 /// 在文件/保存对话框所在的 STA 线程上安装 <c>WH_GETMESSAGE</c> 发现 Shell 列表/树窗口，
-/// 用 <c>SetWindowSubclass</c> 拦截 <c>WM_CONTEXTMENU</c> 并弹出自建菜单，避免
-/// <c>IContextMenu</c> → 加载第三方 Shell 扩展 DLL 导致崩溃；同时保留复制路径、打开所在文件夹等常用能力。
+/// 用 <c>SetWindowSubclass</c> 拦截 <c>WM_CONTEXTMENU</c> 并直接吞掉，不在浏览区域内显示右键菜单
+/// （仅保留左键操作），同时避免 <c>IContextMenu</c> / Shell 扩展在对话框内被触发导致崩溃。
 /// 不引用 Serilog / WinUI。
 /// </summary>
 public static class FileDialogRmbSuppressHook
@@ -495,7 +491,7 @@ public static class FileDialogRmbSuppressHook
         _ = SendInput(1, new[] { inp }, Marshal.SizeOf<INPUT>());
     }
 
-    /// <summary>commdlg 外壳在 <see cref="IShellBrowser.BrowseObject"/> 无效时，尝试 Alt+D 聚焦地址栏后键入路径并回车。</summary>
+    /// <summary>commdlg 外壳在 Shell 浏览器的 <c>BrowseObject</c> 无效时，尝试 Alt+D 聚焦地址栏后键入路径并回车。</summary>
     private static bool TryNavigateCommDlgViaAddressBarKeyboard(IntPtr dlg32770, string fullDir)
     {
         if (dlg32770 == IntPtr.Zero || !IsWindow(dlg32770) || string.IsNullOrWhiteSpace(fullDir))
@@ -679,26 +675,7 @@ public static class FileDialogRmbSuppressHook
     {
         if (uMsg == WM_CONTEXTMENU)
         {
-            long lp = lParam.ToInt64();
-            int lx = unchecked((short)(lp & 0xFFFF));
-            int ly = unchecked((short)((lp >> 16) & 0xFFFF));
-            int sx = lx;
-            int sy = ly;
-            if (lx == -1 && ly == -1)
-            {
-                if (GetCursorPos(out var pt))
-                {
-                    sx = pt.x;
-                    sy = pt.y;
-                }
-            }
-            else if (GetCursorPos(out var cur))
-            {
-                sx = cur.x;
-                sy = cur.y;
-            }
-
-            ShowSafePopup(hWnd, sx, sy);
+            // 浏览框列表/树等区域不弹出右键菜单（与仅使用左键一致）；返回非零已处理，不调用系统默认菜单。
             return (IntPtr)1;
         }
 
@@ -832,105 +809,105 @@ public static class FileDialogRmbSuppressHook
             switch (cmd)
             {
                 case CmdCopyPath:
-                {
-                    string? z = pathForClipboard;
-                    if (string.IsNullOrEmpty(z))
-                        z = path;
-                    if (string.IsNullOrEmpty(z) && !string.IsNullOrEmpty(folder) && !string.IsNullOrEmpty(hitName))
-                        z = TryCombineFolderAndNameWithExistenceProbe(folder, hitName);
-                    if (string.IsNullOrEmpty(z) && !string.IsNullOrEmpty(folder) && !string.IsNullOrEmpty(nameForClipboard))
-                        z = TryCombineFolderAndNameWithExistenceProbe(folder, nameForClipboard);
-                    z = TryDereferenceShellShortcutToTargetPath(z);
-                    if (!string.IsNullOrEmpty(z))
-                        SetClipboardUnicode(z);
-                    break;
-                }
-                case CmdCopyName:
-                {
-                    string? n = nameForClipboard;
-                    if (string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(hitName))
-                        n = hitName;
-                    if (string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(path))
-                        n = Path.GetFileName(path);
-                    if (string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(pathForClipboard))
-                        n = Path.GetFileName(pathForClipboard);
-                    if (!string.IsNullOrEmpty(n))
-                        SetClipboardUnicode(n);
-                    break;
-                }
-                case CmdOpenFolder:
-                {
-                    string? targetDir = null;
-
-                    if (!string.IsNullOrEmpty(hitName) && !string.IsNullOrEmpty(folder))
                     {
-                        string? hitMerged = TryCombineFolderAndNameWithExistenceProbe(folder, hitName);
-                        if (!string.IsNullOrEmpty(hitMerged))
+                        string? z = pathForClipboard;
+                        if (string.IsNullOrEmpty(z))
+                            z = path;
+                        if (string.IsNullOrEmpty(z) && !string.IsNullOrEmpty(folder) && !string.IsNullOrEmpty(hitName))
+                            z = TryCombineFolderAndNameWithExistenceProbe(folder, hitName);
+                        if (string.IsNullOrEmpty(z) && !string.IsNullOrEmpty(folder) && !string.IsNullOrEmpty(nameForClipboard))
+                            z = TryCombineFolderAndNameWithExistenceProbe(folder, nameForClipboard);
+                        z = TryDereferenceShellShortcutToTargetPath(z);
+                        if (!string.IsNullOrEmpty(z))
+                            SetClipboardUnicode(z);
+                        break;
+                    }
+                case CmdCopyName:
+                    {
+                        string? n = nameForClipboard;
+                        if (string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(hitName))
+                            n = hitName;
+                        if (string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(path))
+                            n = Path.GetFileName(path);
+                        if (string.IsNullOrEmpty(n) && !string.IsNullOrEmpty(pathForClipboard))
+                            n = Path.GetFileName(pathForClipboard);
+                        if (!string.IsNullOrEmpty(n))
+                            SetClipboardUnicode(n);
+                        break;
+                    }
+                case CmdOpenFolder:
+                    {
+                        string? targetDir = null;
+
+                        if (!string.IsNullOrEmpty(hitName) && !string.IsNullOrEmpty(folder))
+                        {
+                            string? hitMerged = TryCombineFolderAndNameWithExistenceProbe(folder, hitName);
+                            if (!string.IsNullOrEmpty(hitMerged))
+                            {
+                                try
+                                {
+                                    if (Directory.Exists(hitMerged))
+                                        targetDir = Path.GetFullPath(hitMerged);
+                                    else if (File.Exists(hitMerged))
+                                        targetDir = Path.GetDirectoryName(Path.GetFullPath(hitMerged));
+                                }
+                                catch
+                                {
+                                    /* ignore */
+                                }
+                            }
+                        }
+
+                        if (string.IsNullOrEmpty(targetDir) && isDirectoryPath && !string.IsNullOrEmpty(path))
+                            targetDir = path;
+                        if (string.IsNullOrEmpty(targetDir) && isFilePath && !string.IsNullOrEmpty(path))
                         {
                             try
                             {
-                                if (Directory.Exists(hitMerged))
-                                    targetDir = Path.GetFullPath(hitMerged);
-                                else if (File.Exists(hitMerged))
-                                    targetDir = Path.GetDirectoryName(Path.GetFullPath(hitMerged));
+                                targetDir = Path.GetDirectoryName(Path.GetFullPath(path));
                             }
                             catch
                             {
-                                /* ignore */
+                                targetDir = Path.GetDirectoryName(path);
                             }
                         }
-                    }
 
-                    if (string.IsNullOrEmpty(targetDir) && isDirectoryPath && !string.IsNullOrEmpty(path))
-                        targetDir = path;
-                    if (string.IsNullOrEmpty(targetDir) && isFilePath && !string.IsNullOrEmpty(path))
-                    {
-                        try
+                        if (string.IsNullOrEmpty(targetDir) && !string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                            targetDir = folder;
+                        if (string.IsNullOrEmpty(targetDir) && !string.IsNullOrEmpty(path) && LooksLikeReasonableFsPath(path))
                         {
-                            targetDir = Path.GetDirectoryName(Path.GetFullPath(path));
-                        }
-                        catch
-                        {
-                            targetDir = Path.GetDirectoryName(path);
-                        }
-                    }
+                            try
+                            {
+                                targetDir = Path.GetDirectoryName(Path.GetFullPath(path));
+                            }
+                            catch
+                            {
+                                targetDir = Path.GetDirectoryName(path);
+                            }
 
-                    if (string.IsNullOrEmpty(targetDir) && !string.IsNullOrEmpty(folder) && Directory.Exists(folder))
-                        targetDir = folder;
-                    if (string.IsNullOrEmpty(targetDir) && !string.IsNullOrEmpty(path) && LooksLikeReasonableFsPath(path))
-                    {
-                        try
-                        {
-                            targetDir = Path.GetDirectoryName(Path.GetFullPath(path));
-                        }
-                        catch
-                        {
-                            targetDir = Path.GetDirectoryName(path);
+                            if (string.IsNullOrEmpty(targetDir))
+                                targetDir = path;
                         }
 
-                        if (string.IsNullOrEmpty(targetDir))
-                            targetDir = path;
-                    }
+                        if (!string.IsNullOrEmpty(targetDir) && TryBrowseShellViewToPath(dlg, viewHwnd, targetDir))
+                            break;
 
-                    if (!string.IsNullOrEmpty(targetDir) && TryBrowseShellViewToPath(dlg, viewHwnd, targetDir))
-                        break;
-
-                    if (isFilePath)
-                        TryOpenInExplorerSelect(path!);
-                    else if (isDirectoryPath && !string.IsNullOrEmpty(path))
-                        TryOpenExplorerFolder(path);
-                    else if (!string.IsNullOrEmpty(folder))
-                        TryOpenExplorerFolder(folder);
-                    else if (!string.IsNullOrEmpty(path) && LooksLikeReasonableFsPath(path))
-                    {
-                        string? d = Path.GetDirectoryName(path);
-                        if (!string.IsNullOrEmpty(d))
-                            TryOpenExplorerFolder(d);
-                        else
+                        if (isFilePath)
+                            TryOpenInExplorerSelect(path!);
+                        else if (isDirectoryPath && !string.IsNullOrEmpty(path))
                             TryOpenExplorerFolder(path);
+                        else if (!string.IsNullOrEmpty(folder))
+                            TryOpenExplorerFolder(folder);
+                        else if (!string.IsNullOrEmpty(path) && LooksLikeReasonableFsPath(path))
+                        {
+                            string? d = Path.GetDirectoryName(path);
+                            if (!string.IsNullOrEmpty(d))
+                                TryOpenExplorerFolder(d);
+                            else
+                                TryOpenExplorerFolder(path);
+                        }
+                        break;
                     }
-                    break;
-                }
                 case CmdRefresh:
                     PostRefreshList(viewHwnd);
                     break;
@@ -2167,7 +2144,7 @@ public static class FileDialogRmbSuppressHook
         return TryListViewItemText(lv, hti.iItem);
     }
 
-    /// <summary>从物理屏幕点向上找 <c>SysListView32</c>（commdlg 下 <paramref name="viewHwnd"/> 可能不是列表本身）。</summary>
+    /// <summary>从物理屏幕点 (<paramref name="screenX"/>, <paramref name="screenY"/>) 向上找 <c>SysListView32</c>（commdlg 下祖先 HWND 可能不是列表本身）。</summary>
     private static string? TrySysListViewNameFromPhysicalScreenPoint(int screenX, int screenY)
     {
         var ppt = new POINT { x = screenX, y = screenY };

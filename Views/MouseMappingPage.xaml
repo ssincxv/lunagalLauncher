@@ -118,7 +118,7 @@
                             <controls:CustomDropdown x:Name="GlobalProcessDropdown"
                                                      PlaceholderText="在下拉中勾选或浏览添加；路径仅显示在过滤名单内"
                                                      IsReadOnly="True" MaxDropDownHeight="420" HorizontalAlignment="Stretch"/>
-                            <Button Grid.Column="1" MinHeight="32" Padding="10,0,12,0" CornerRadius="4" VerticalAlignment="Stretch"
+                            <Button Grid.Column="1" MinHeight="32" Padding="10,0,12,0" CornerRadius="12" VerticalAlignment="Stretch"
                                     Click="GlobalBrowseExe_Click" ToolTipService.ToolTip="浏览并添加可执行文件">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE70F;" FontSize="16"/>
@@ -129,9 +129,15 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 全局：光标在任务栏/屏幕边缘时不应用任何映射规则（引擎读 MouseMappingConfig 全局字段） -->
+                <!-- 全局：光标在任务栏/屏幕边缘/系统壳层进程时不应用任何映射规则（引擎读 MouseMappingConfig 全局字段） -->
                 <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="0,8,0,0"/>
                 <StackPanel Orientation="Horizontal" Spacing="24">
+                    <ToggleSwitch x:Name="GlobalExcludeWindowsShellUiSwitch"
+                                  Header="系统界面不映射"
+                                  OnContent="是"
+                                  OffContent="否"
+                                  VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="开启后，在资源管理器（此电脑、文件夹）、系统设置、照片、开始菜单/搜索相关进程上不应用鼠标映射；若需在上述界面也使用映射，请关闭此项。"/>
                     <ToggleSwitch x:Name="GlobalDisableOnTaskbarSwitch"
                                   Header="任务栏区域禁用"
                                   OnContent="是"
@@ -175,6 +181,7 @@
                                 <Button Content="删除此规则"
                                         Click="DeleteRuleButton_Click"
                                         Tag="{x:Bind Id}"
+                                        CornerRadius="12"
                                         HorizontalAlignment="Right"/>
                             </StackPanel>
                         </DataTemplate>

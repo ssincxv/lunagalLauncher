@@ -169,7 +169,7 @@ namespace lunagalLauncher.Core
                 // Start process
                 Log.Information("正在启动进程: {FileName}", startInfo.FileName);
                 Process? process = null;
-                
+
                 try
                 {
                     process = Process.Start(startInfo);

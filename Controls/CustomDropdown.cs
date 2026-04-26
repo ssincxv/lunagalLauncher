@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
@@ -53,7 +53,7 @@ namespace lunagalLauncher.Controls
         /// </para>
         /// </summary>
         private bool _compositionInitialized;
-        
+
         // 动画速率配置（像素/毫秒）
         private const double ANIMATION_VELOCITY = 1.5; // 1.5px/ms = 1500px/s
 
@@ -193,7 +193,7 @@ namespace lunagalLauncher.Controls
             {
                 bool isReadOnly = (bool)e.NewValue;
                 dropdown._textBox.IsReadOnly = isReadOnly;
-                
+
                 // 🔧 修复：当设置为只读时，在控件级别设置光标为箭头
                 // Fix: Set cursor to arrow at control level when read-only
                 dropdown.UpdateCursorStyle(isReadOnly);
@@ -265,16 +265,16 @@ namespace lunagalLauncher.Controls
                 // 关键修复：设置 Popup 的 PlacementTarget
                 _popup.PlacementTarget = this;
                 Log.Debug("🔧 设置 Popup.PlacementTarget = this");
-                
+
                 // 确认 Popup.Child 已设置
                 if (_popup.Child == null && _popupBorder != null)
                 {
                     Log.Warning("⚠️ Popup.Child 为 null，尝试从模板中分离并重新设置");
                     // 注意：在 XAML 中 PopupBorder 已经是 Popup 的 Child，这里只是确认
                 }
-                
+
                 Log.Debug("🔧 Popup.Child 类型: {ChildType}", _popup.Child?.GetType().Name ?? "null");
-                
+
                 // 获取 ContentPresenter（在 PopupBorder 内部）
                 if (_contentPresenter == null)
                 {
@@ -293,7 +293,7 @@ namespace lunagalLauncher.Controls
                 _textBox.Text = Text;
                 _textBox.PlaceholderText = PlaceholderText;
                 _textBox.IsReadOnly = IsReadOnly;
-                
+
                 // 🔧 同步光标样式
                 // Sync cursor style based on IsReadOnly
                 UpdateCursorStyle(IsReadOnly);
@@ -320,14 +320,14 @@ namespace lunagalLauncher.Controls
                     // 只读模式：使用箭头光标
                     // Read-only mode: use arrow cursor
                     this.ProtectedCursor = Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Arrow);
-                    
+
                     // 🔧 关键修复：禁用 TextBox 的指针事件，让控件级别的光标生效
                     // Critical fix: Disable pointer events on TextBox so control-level cursor takes effect
                     if (_textBox != null)
                     {
                         _textBox.IsHitTestVisible = false;
                     }
-                    
+
                     Log.Debug("🖱️ 光标已设置为箭头（只读模式）");
                 }
                 else
@@ -335,12 +335,12 @@ namespace lunagalLauncher.Controls
                     // 可编辑模式：使用默认光标（I型光标）
                     // Editable mode: use default cursor (IBeam)
                     this.ProtectedCursor = null; // 使用默认光标
-                    
+
                     if (_textBox != null)
                     {
                         _textBox.IsHitTestVisible = true; // 恢复指针事件
                     }
-                    
+
                     Log.Debug("🖱️ 光标已恢复为默认（可编辑模式）");
                 }
             }
@@ -450,7 +450,7 @@ namespace lunagalLauncher.Controls
                 {
                     _borderVisual = ElementCompositionPreview.GetElementVisual(_shadowBorder);
                     Log.Debug("🔧 获取 ShadowBorder Visual 成功");
-                    
+
                     // 创建 DropShadow（用于输入框底部阴影）
                     var compositor = _borderVisual.Compositor;
                     _dropShadow = compositor.CreateDropShadow();
@@ -458,14 +458,14 @@ namespace lunagalLauncher.Controls
                     _dropShadow.Offset = new Vector3(0, 0, 0);  // 无偏移
                     _dropShadow.Opacity = 1f;         // 阴影本身不透明，通过 Border 的 Opacity 控制
                     _dropShadow.Color = Windows.UI.Color.FromArgb(255, 0, 0, 0);  // 黑色阴影
-                    
+
                     // 将阴影应用到 ShadowBorder
                     var shadowVisual = compositor.CreateSpriteVisual();
                     shadowVisual.Shadow = _dropShadow;
                     shadowVisual.Size = new Vector2((float)_shadowBorder.ActualWidth, (float)_shadowBorder.ActualHeight);
-                    
+
                     ElementCompositionPreview.SetElementChildVisual(_shadowBorder, shadowVisual);
-                    
+
                     // 监听尺寸变化
                     _shadowBorder.SizeChanged += (s, e) =>
                     {
@@ -474,7 +474,7 @@ namespace lunagalLauncher.Controls
                             shadowVisual.Size = new Vector2((float)e.NewSize.Width, (float)e.NewSize.Height);
                         }
                     };
-                    
+
                     Log.Debug("🔧 ShadowBorder DropShadow 已创建");
                 }
                 catch (Exception ex)
@@ -508,7 +508,7 @@ namespace lunagalLauncher.Controls
         private void TextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             Log.Debug("TextBox 失去焦点");
-            
+
             // 延迟检查，给点击下拉内容的时间
             DispatcherQueue?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
@@ -529,9 +529,9 @@ namespace lunagalLauncher.Controls
             Log.Information("🎯 _popup = {Popup}", _popup != null ? "已初始化" : "null");
             Log.Information("🎯 _shadowScale = {Scale}", _shadowScale != null ? "已初始化" : "null");
             Log.Information("🎯 _contentPresenter = {Presenter}", _contentPresenter != null ? "已初始化" : "null");
-            
+
             IsOpen = !IsOpen;
-            
+
             Log.Information("🎯 设置后 IsOpen = {IsOpen}", IsOpen);
         }
 
@@ -591,41 +591,41 @@ namespace lunagalLauncher.Controls
         private void Popup_Opened(object? sender, object e)
         {
             Log.Debug("Popup 已打开");
-            
+
             // 动态设置下拉框宽度以匹配输入框宽度
             UpdateDropdownWidth();
-            
+
             // 订阅输入框宽度变化事件
             if (_borderElement != null)
             {
                 _borderElement.SizeChanged += BorderElement_SizeChanged;
                 Log.Information("📏 已订阅输入框宽度变化事件");
             }
-            
+
             // 订阅 PopupBorder 尺寸变化事件，用于同步阴影层
             if (_popupBorder != null)
             {
                 _popupBorder.SizeChanged += PopupBorder_SizeChanged;
                 Log.Information("📏 已订阅 PopupBorder 尺寸变化事件");
             }
-            
+
             // 订阅全局点击事件（用于点击外部区域关闭下拉框）
             if (XamlRoot != null)
             {
                 XamlRoot.Content.AddHandler(PointerPressedEvent, new PointerEventHandler(OnGlobalPointerPressed), handledEventsToo: true);
                 Log.Information("🌐 已订阅全局点击事件");
             }
-            
+
             // 诊断 Popup 位置
             if (_popup != null && _popupBorder != null)
             {
                 var transform = _popupBorder.TransformToVisual(null);
                 var point = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
                 Log.Information("📍 Popup 位置: X={X}, Y={Y}", point.X, point.Y);
-                Log.Information("📍 PopupBorder 尺寸: Width={Width}, Height={Height}", 
+                Log.Information("📍 PopupBorder 尺寸: Width={Width}, Height={Height}",
                     _popupBorder.ActualWidth, _popupBorder.ActualHeight);
                 Log.Information("📍 控件位置: X={X}, Y={Y}", this.ActualOffset.X, this.ActualOffset.Y);
-                Log.Information("📍 控件尺寸: Width={Width}, Height={Height}", 
+                Log.Information("📍 控件尺寸: Width={Width}, Height={Height}",
                     this.ActualWidth, this.ActualHeight);
             }
         }
@@ -637,28 +637,28 @@ namespace lunagalLauncher.Controls
         {
             Log.Information("📌 Popup 已关闭事件触发");
             Log.Information("📌 当前 IsOpen = {IsOpen}, Popup.IsOpen = {PopupIsOpen}", IsOpen, _popup?.IsOpen);
-            
+
             // 取消订阅输入框宽度变化事件
             if (_borderElement != null)
             {
                 _borderElement.SizeChanged -= BorderElement_SizeChanged;
                 Log.Information("📏 已取消订阅输入框宽度变化事件");
             }
-            
+
             // 取消订阅 PopupBorder 尺寸变化事件
             if (_popupBorder != null)
             {
                 _popupBorder.SizeChanged -= PopupBorder_SizeChanged;
                 Log.Information("📏 已取消订阅 PopupBorder 尺寸变化事件");
             }
-            
+
             // 取消订阅全局点击事件
             if (XamlRoot != null)
             {
                 XamlRoot.Content.RemoveHandler(PointerPressedEvent, new PointerEventHandler(OnGlobalPointerPressed));
                 Log.Information("🌐 已取消订阅全局点击事件");
             }
-            
+
             // 不要在这里同步状态，会导致循环触发
             // Popup 的关闭应该只由用户操作触发，不应该自动关闭
         }
@@ -670,10 +670,10 @@ namespace lunagalLauncher.Controls
         {
             // 实时更新下拉框宽度
             UpdateDropdownWidth();
-            Log.Information("📏 输入框宽度变化: {OldWidth}px → {NewWidth}px，下拉框已自适应", 
+            Log.Information("📏 输入框宽度变化: {OldWidth}px → {NewWidth}px，下拉框已自适应",
                 e.PreviousSize.Width, e.NewSize.Width);
         }
-        
+
         /// <summary>
         /// PopupBorder 尺寸变化事件
         /// </summary>
@@ -681,7 +681,7 @@ namespace lunagalLauncher.Controls
         {
             // 实时更新阴影层尺寸
             UpdateShadowBorderSize();
-            Log.Information("📏 PopupBorder 尺寸变化: {OldSize} → {NewSize}，阴影层已同步", 
+            Log.Information("📏 PopupBorder 尺寸变化: {OldSize} → {NewSize}，阴影层已同步",
                 e.PreviousSize, e.NewSize);
         }
 
@@ -742,12 +742,12 @@ namespace lunagalLauncher.Controls
                 _popupBorder.MinWidth = inputWidth;
                 _popupBorder.MaxWidth = inputWidth;
                 Log.Information("📏 下拉框宽度已设置为: {Width}px（匹配输入框宽度）", inputWidth);
-                
+
                 // 同时更新阴影层的尺寸
                 UpdateShadowBorderSize();
             }
         }
-        
+
         /// <summary>
         /// 更新阴影层尺寸以匹配内容层
         /// </summary>
@@ -757,7 +757,7 @@ namespace lunagalLauncher.Controls
             {
                 _shadowBorderElement.Width = _popupBorder.ActualWidth;
                 _shadowBorderElement.Height = _popupBorder.ActualHeight;
-                Log.Information("📏 阴影层尺寸已更新: Width={Width}px, Height={Height}px", 
+                Log.Information("📏 阴影层尺寸已更新: Width={Width}px, Height={Height}px",
                     _popupBorder.ActualWidth, _popupBorder.ActualHeight);
             }
         }
@@ -773,7 +773,7 @@ namespace lunagalLauncher.Controls
             Log.Information("🔥 _contentPresenter = {Presenter}", _contentPresenter != null ? "已初始化" : "null");
             Log.Information("🔥 Content = {Content}", Content != null ? "有内容" : "null");
             Log.Information("🔥 _popup.Child = {Child}", _popup?.Child != null ? "有内容" : "null");
-            
+
             if (_popup == null)
             {
                 Log.Warning("🔥 _popup 为 null，退出");
@@ -783,7 +783,7 @@ namespace lunagalLauncher.Controls
             try
             {
                 Log.Information("🔥 _isAnimating = {IsAnimating}", _isAnimating);
-                
+
                 // 如果正在动画中，先停止所有动画
                 if (_isAnimating)
                 {
@@ -812,14 +812,14 @@ namespace lunagalLauncher.Controls
 
                     // 打开下拉框
                     Log.Information("🔥 准备打开 Popup");
-                    
+
                     // 确保内容可见
                     if (_contentPresenter != null)
                     {
                         _contentPresenter.Visibility = Visibility.Visible;
                         Log.Information("🔥 设置 ContentPresenter.Visibility = Visible");
                     }
-                    
+
                     _popup.IsOpen = true;
                     Log.Information("🔥 Popup.IsOpen 已设置为 true");
                     PlayExpandAnimation();
@@ -828,14 +828,14 @@ namespace lunagalLauncher.Controls
                 {
                     // 关闭下拉框
                     Log.Information("🔥 准备关闭 Popup");
-                    
+
                     // 清除静态引用
                     if (_currentOpenDropdown == this)
                     {
                         _currentOpenDropdown = null;
                         Log.Information("🔒 清除当前下拉框的静态引用");
                     }
-                    
+
                     PlayCollapseAnimation();
                 }
             }

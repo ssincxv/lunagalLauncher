@@ -51,11 +51,11 @@ namespace lunagalLauncher.Utils
                         // 获取进程的完整路径
                         // Get full path of the process
                         string processPath = process.MainModule?.FileName ?? string.Empty;
-                        
+
                         if (!string.IsNullOrWhiteSpace(processPath))
                         {
                             string normalizedProcessPath = Path.GetFullPath(processPath).ToLowerInvariant();
-                            
+
                             if (normalizedProcessPath == normalizedTargetPath)
                             {
                                 return true;

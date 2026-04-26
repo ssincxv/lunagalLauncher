@@ -17,6 +17,16 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>lunagalLauncher</RootNamespace>
 
+        <!-- 构建期代码样式与 Roslyn 分析器：清理未使用成员、冗余 using 等 -->
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <!-- 启用后构建期可报告 IDE0005（冗余 using）；CS1591 对无 XML 的 public API 噪声过大故抑制 -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);1591</NoWarn>
+        <!-- WinUI + COM + Newtonsoft：不在构建期跑 IL 裁剪分析（Release 否则大量 IL20xx 噪声；发布若启用 Trim 需单独验证）。 -->
+        <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+
         <!-- App Options -->
         <UseRidGraph>true</UseRidGraph>
         <Platforms>x86;x64;ARM64</Platforms>
@@ -36,6 +46,15 @@
 
         <!-- 禁用 XAML 生成的 Main，入口见 Program.cs。 -->
         <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    </PropertyGroup>
+
+    <!--
+      多平台 WinUI：命令行 dotnet run 未传 -p:Platform 时，默认探测路径为 bin\Debug\...\exe，
+      实际输出在 bin\{Platform}\Debug\...\win-{rid}\，会报「系统找不到指定的文件」。
+      本项目主目标为 x64：未指定或 AnyCPU 时默认 x64（需 ARM64 时显式 -p:Platform=ARM64）。
+    -->
+    <PropertyGroup>
+        <Platform Condition="'$(Platform)' == '' OR '$(Platform)' == 'AnyCPU'">x64</Platform>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,13 +1,9 @@
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
 using lunagalLauncher.Helpers;
 using lunagalLauncher.Services;
-using lunagalLauncher.Views;
 using Serilog;
-using lunagalLauncher;
 
 namespace lunagalLauncher.Utils
 {
@@ -19,7 +15,9 @@ namespace lunagalLauncher.Utils
         Unavailable,
     }
 
-    /// <param name="HelperExitCode">子进程退出码；未能启动子进程或未退出时为 null。</param>
+    /// <param name="Path"></param>
+
+    /// <param name="Completion"></param>    /// <param name="HelperExitCode">子进程退出码；未能启动子进程或未退出时为 null。</param>
     public readonly record struct OpenFilePickerResult(string? Path, OpenFilePickerCompletion Completion, int? HelperExitCode);
 
     /// <summary>
@@ -344,6 +342,9 @@ namespace lunagalLauncher.Utils
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
+                    // 与 FilePickerHelper.Run 中 Console.OutputEncoding（UTF-8）一致；否则中文路径会被按系统 ANSI 误解码为乱码。
+                    StandardOutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                    StandardErrorEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
                     CreateNoWindow = true,
                 };
                 psi.ArgumentList.Add("--file-picker");
@@ -565,7 +566,7 @@ namespace lunagalLauncher.Utils
             try
             {
                 rmbHook = FileDialogRmbSuppressHook.InstallOnCurrentThread();
-                for (;;)
+                for (; ; )
                 {
                     _staHasWork.WaitOne();
                     Action? run;

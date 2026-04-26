@@ -1,4 +1,3 @@
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 
 namespace lunagalLauncher.Views

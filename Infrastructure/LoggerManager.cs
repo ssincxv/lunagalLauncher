@@ -1,5 +1,6 @@
 using lunagalLauncher.Data;
 using Serilog;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace lunagalLauncher.Infrastructure
@@ -10,6 +11,8 @@ namespace lunagalLauncher.Infrastructure
     /// </summary>
     public static class LoggerManager
     {
+        private static readonly object LogLifecycleLock = new();
+
         /// <summary>
         /// Serilog 按日滚动时的路径模板（含 lunagalLauncher-.log，实际文件名为 lunagalLauncher-yyyyMMdd.log）
         /// </summary>
@@ -42,69 +45,122 @@ namespace lunagalLauncher.Infrastructure
         /// </summary>
         public static void Initialize()
         {
-            try
+            lock (LogLifecycleLock)
+            {
+                try
+                {
+                    string logFolder = GetLogsDirectory();
+                    _logFilePath = Path.Combine(logFolder, "lunagalLauncher-.log");
+                    Log.Logger = BuildLogger();
+
+                    Log.Information("========================================");
+                    Log.Information("lunagalLauncher 启动");
+                    Log.Information("日志系统初始化成功");
+                    Log.Information("日志文件路径: {LogFilePath}", _logFilePath);
+                    Log.Information("========================================");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"日志系统初始化失败: {ex.Message}");
+                    Console.WriteLine(ex.StackTrace);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 删除当日滚动日志文件并重新创建 Serilog。须先 CloseAndFlush 以释放 Async/File 句柄，否则无法删除文件。
+        /// </summary>
+        public static bool TryTruncateTodayLogAndRecreateLogger()
+        {
+            lock (LogLifecycleLock)
+            {
+                bool diskOk = false;
+                try
+                {
+                    try
+                    {
+                        Log.CloseAndFlush();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"清空日志：CloseAndFlush 异常（继续尝试删文件）: {ex.Message}");
+                    }
+
+                    var todayPath = GetTodayLogFilePath();
+                    try
+                    {
+                        if (File.Exists(todayPath))
+                            File.Delete(todayPath);
+                        diskOk = true;
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            using (var fs = new FileStream(todayPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                            {
+                            }
+                            diskOk = true;
+                        }
+                        catch
+                        {
+                            diskOk = false;
+                        }
+                    }
+
+                    string logFolder = GetLogsDirectory();
+                    _logFilePath = Path.Combine(logFolder, "lunagalLauncher-.log");
+                    Log.Logger = BuildLogger();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"清空日志并重建 Logger 失败: {ex.Message}");
+                    try
+                    {
+                        string logFolder = GetLogsDirectory();
+                        _logFilePath = Path.Combine(logFolder, "lunagalLauncher-.log");
+                        Log.Logger = BuildLogger();
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                    return false;
+                }
+
+                return diskOk;
+            }
+        }
+
+        private static Logger BuildLogger()
+        {
+            if (string.IsNullOrEmpty(_logFilePath))
             {
                 string logFolder = GetLogsDirectory();
-
-                // 设置日志文件路径（按日期滚动）
-                // Set log file path (rolling by date)
                 _logFilePath = Path.Combine(logFolder, "lunagalLauncher-.log");
+            }
 
-                // 配置 Serilog
-                // Configure Serilog
-                Log.Logger = new LoggerConfiguration()
-                    // 设置最小日志级别为 Debug
-                    // Set minimum log level to Debug
-                    .MinimumLevel.Debug()
-
-                    // 覆盖 Microsoft 命名空间的日志级别为 Information（减少噪音）
-                    // Override Microsoft namespace log level to Information (reduce noise)
-                    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
-
-                    // 覆盖 System 命名空间的日志级别为 Warning（减少噪音）
-                    // Override System namespace log level to Warning (reduce noise)
-                    .MinimumLevel.Override("System", LogEventLevel.Warning)
-
-                    // 文件输出经 Async sink：调用方线程只做入队，磁盘写入在后台线程，降低 WinUI UI 线程卡顿。
-                    // Wrap file sink with Async: caller thread enqueues only; disk I/O on background thread.
-                    .WriteTo.Async(
-                        configure: wt => wt.File(
-                            path: _logFilePath,
-                            rollingInterval: RollingInterval.Day,
-                            retainedFileCountLimit: 30,
-                            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
-                        ),
-                        bufferSize: 10_000,
-                        blockWhenFull: false
-                    )
-
-                    // 添加调试输出（仅在 Debug 模式下）
-                    // Add debug output (only in Debug mode)
+            return new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+                .MinimumLevel.Override("System", LogEventLevel.Warning)
+                .WriteTo.Async(
+                    configure: wt => wt.File(
+                        path: _logFilePath!,
+                        rollingInterval: RollingInterval.Day,
+                        retainedFileCountLimit: 30,
+                        shared: true,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+                    ),
+                    bufferSize: 10_000,
+                    blockWhenFull: false
+                )
 #if DEBUG
-                    .WriteTo.Debug(
-                        outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
-                    )
+                .WriteTo.Debug(
+                    outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+                )
 #endif
-
-                    // 创建日志记录器
-                    // Create logger
-                    .CreateLogger();
-
-                // 记录初始化成功
-                // Log initialization success
-                Log.Information("========================================");
-                Log.Information("lunagalLauncher 启动");
-                Log.Information("日志系统初始化成功");
-                Log.Information("日志文件路径: {LogFilePath}", _logFilePath);
-                Log.Information("========================================");
-            }
-            catch (Exception ex)
-            {
-                // 如果日志初始化失败，至少尝试输出到控制台
-                // If log initialization fails, at least try to output to console
-                Console.WriteLine($"日志系统初始化失败: {ex.Message}");
-                Console.WriteLine(ex.StackTrace);
-            }
+                .CreateLogger();
         }
 
         /// <summary>
@@ -113,20 +169,21 @@ namespace lunagalLauncher.Infrastructure
         /// </summary>
         public static void Shutdown()
         {
-            try
+            lock (LogLifecycleLock)
             {
-                Log.Information("========================================");
-                Log.Information("lunagalLauncher 关闭");
-                Log.Information("日志系统正在关闭...");
-                Log.Information("========================================");
+                try
+                {
+                    Log.Information("========================================");
+                    Log.Information("lunagalLauncher 关闭");
+                    Log.Information("日志系统正在关闭...");
+                    Log.Information("========================================");
 
-                // 刷新并关闭所有日志输出
-                // Flush and close all log outputs
-                Log.CloseAndFlush();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"日志系统关闭失败: {ex.Message}");
+                    Log.CloseAndFlush();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"日志系统关闭失败: {ex.Message}");
+                }
             }
         }
 

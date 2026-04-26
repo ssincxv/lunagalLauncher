@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Cursor / Claude Code 本地设置（勿提交）
+.claude/
+
 # User-specific files
 *.rsuser
 *.suo
@@ -64,6 +67,9 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+
+# 本地验证输出（勿提交 DLL 堆）
+_build_verify_out/
 
 # Tye
 .tye/

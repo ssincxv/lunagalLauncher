@@ -75,6 +75,7 @@ namespace lunagalLauncher.Services
         /// 与 <see cref="SendMouseButtonClick"/> 的连发用 UP→DOWN 区分开，
         /// 避免与吞键后补的 <see cref="SendMouseButtonUpOnly"/> 叠加成两次 UP + DOWN，导致应用侧出现双击或状态错乱。
         /// </summary>
+        /// <param name="button012"></param>
         /// <param name="holdMsBetweenDownAndUp">合成按下与抬起之间的保持毫秒数；0 时使用约 10ms 的默认短间隔。</param>
         internal static void SendMouseButtonClickFireOnce(int button012, int holdMsBetweenDownAndUp = 0)
         {
@@ -119,8 +120,12 @@ namespace lunagalLauncher.Services
                 // 第一步：UP（释放当前按下态）
                 single[0].U.mi = new MouseInputNative.MOUSEINPUT
                 {
-                    dx = absX, dy = absY, mouseData = 0,
-                    dwFlags = abs | upFlag, time = 0, dwExtraInfo = MappingSyntheticExtraInfoPtr
+                    dx = absX,
+                    dy = absY,
+                    mouseData = 0,
+                    dwFlags = abs | upFlag,
+                    time = 0,
+                    dwExtraInfo = MappingSyntheticExtraInfoPtr
                 };
                 uint s1 = MouseInputNative.SendInput(1, single, size);
                 if (s1 == 0)
@@ -139,8 +144,12 @@ namespace lunagalLauncher.Services
                 // 第二步：DOWN（新的独立按下）——不发 UP2，避免改变 GetAsyncKeyState 导致轮询误停
                 single[0].U.mi = new MouseInputNative.MOUSEINPUT
                 {
-                    dx = absX, dy = absY, mouseData = 0,
-                    dwFlags = abs | downFlag, time = 0, dwExtraInfo = MappingSyntheticExtraInfoPtr
+                    dx = absX,
+                    dy = absY,
+                    mouseData = 0,
+                    dwFlags = abs | downFlag,
+                    time = 0,
+                    dwExtraInfo = MappingSyntheticExtraInfoPtr
                 };
                 uint s2 = MouseInputNative.SendInput(1, single, size);
 
@@ -269,8 +278,12 @@ namespace lunagalLauncher.Services
             simple[0].type = MouseInputNative.INPUT_MOUSE;
             simple[0].U.mi = new MouseInputNative.MOUSEINPUT
             {
-                dx = 0, dy = 0, mouseData = 0,
-                dwFlags = flag, time = 0, dwExtraInfo = MappingSyntheticExtraInfoPtr
+                dx = 0,
+                dy = 0,
+                mouseData = 0,
+                dwFlags = flag,
+                time = 0,
+                dwExtraInfo = MappingSyntheticExtraInfoPtr
             };
             uint sent1 = MouseInputNative.SendInput(1, simple, size);
             if (sent1 == 1)
@@ -294,9 +307,12 @@ namespace lunagalLauncher.Services
             absInput[0].type = MouseInputNative.INPUT_MOUSE;
             absInput[0].U.mi = new MouseInputNative.MOUSEINPUT
             {
-                dx = absX, dy = absY, mouseData = 0,
+                dx = absX,
+                dy = absY,
+                mouseData = 0,
                 dwFlags = MouseInputNative.MOUSEEVENTF_ABSOLUTE | flag,
-                time = 0, dwExtraInfo = MappingSyntheticExtraInfoPtr
+                time = 0,
+                dwExtraInfo = MappingSyntheticExtraInfoPtr
             };
             uint sent2 = MouseInputNative.SendInput(1, absInput, size);
             if (sent2 == 1)
@@ -782,9 +798,18 @@ namespace lunagalLauncher.Services
             var t = token.ToLowerInvariant();
             return t switch
             {
-                "f1" => 0x70, "f2" => 0x71, "f3" => 0x72, "f4" => 0x73,
-                "f5" => 0x74, "f6" => 0x75, "f7" => 0x76, "f8" => 0x77,
-                "f9" => 0x78, "f10" => 0x79, "f11" => 0x7A, "f12" => 0x7B,
+                "f1" => 0x70,
+                "f2" => 0x71,
+                "f3" => 0x72,
+                "f4" => 0x73,
+                "f5" => 0x74,
+                "f6" => 0x75,
+                "f7" => 0x76,
+                "f8" => 0x77,
+                "f9" => 0x78,
+                "f10" => 0x79,
+                "f11" => 0x7A,
+                "f12" => 0x7B,
                 "space" => 0x20,
                 "enter" or "return" => 0x0D,
                 "tab" => 0x09,

@@ -220,7 +220,7 @@ namespace lunagalLauncher.Views
 
         /// <summary>
         /// FileSystemWatcher 在后台线程触发；await 之后 continuation 未必回到 UI 线程。
-        /// 此时 <see cref="FrameworkElement.DispatcherQueue"/> 可能仍为 null（预挂载未入树），
+        /// 此时 <see cref="Microsoft.UI.Dispatching.DispatcherQueue"/> 可能仍为 null（预挂载未入树），
         /// 直接 <c>DispatcherQueue.TryEnqueue</c> 会 NRE，且 lambda 内异常无法被 ReadNewLogLinesAsync 外层 try 捕获，导致列表不再刷新。
         /// </summary>
         private Microsoft.UI.Dispatching.DispatcherQueue? ResolveUiDispatcherQueue()
@@ -793,14 +793,14 @@ namespace lunagalLauncher.Views
         /// 清空按钮点击事件
         /// Clear button click event handler
         /// </summary>
-        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        private async void ClearButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                Log.Information("用户点击「清空」按钮");
-
+                bool diskOk = LoggerManager.TryTruncateTodayLogAndRecreateLogger();
+                _logFilePath = LoggerManager.GetTodayLogFilePath();
                 _tailOnlyModeAfterClear = true;
-                _lastFilePosition = GetExistingFileLength(_logFilePath);
+                _lastFilePosition = 0;
 
                 _allLogItems.Clear();
                 LogItems.Clear();
@@ -808,11 +808,17 @@ namespace lunagalLauncher.Views
 
                 EmptyStatePanel.Visibility = Visibility.Visible;
 
-                Log.Information("日志显示已清空");
+                if (!diskOk)
+                {
+                    await UiDialogs.ShowAlertAsync(
+                        XamlRoot,
+                        "清空失败",
+                        "无法删除或覆盖当日日志文件（可能被其他程序占用）。列表已清空，若磁盘上仍有内容，可关闭占用后重试或点「刷新」。");
+                }
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "清空日志显示失败: {Message}", ex.Message);
+                Log.Error(ex, "清空日志失败: {Message}", ex.Message);
             }
         }
 

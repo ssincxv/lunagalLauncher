@@ -40,6 +40,7 @@
                 <!-- 刷新按钮 / Refresh Button -->
                 <Button x:Name="RefreshButton"
                         Click="RefreshButton_Click"
+                        CornerRadius="12"
                         ToolTipService.ToolTip="刷新；清空后仅追新日志，按住 Shift 刷新可从文件头重新加载全部">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE72C;" FontSize="16"/>
@@ -50,6 +51,7 @@
                 <!-- 清空按钮 / Clear Button -->
                 <Button x:Name="ClearButton"
                         Click="ClearButton_Click"
+                        CornerRadius="12"
                         ToolTipService.ToolTip="清空显示">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="16"/>
@@ -60,6 +62,7 @@
                 <!-- 打开日志文件夹按钮 / Open Log Folder Button -->
                 <Button x:Name="OpenLogFolderButton"
                         Click="OpenLogFolderButton_Click"
+                        CornerRadius="12"
                         ToolTipService.ToolTip="打开日志文件夹">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8B7;" FontSize="16"/>
@@ -158,7 +161,7 @@
                     <TextBlock Text="暂无日志记录"
                                FontSize="16"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <Button Content="刷新日志" Click="RefreshButton_Click"/>
+                    <Button Content="刷新日志" Click="RefreshButton_Click" CornerRadius="12"/>
                 </StackPanel>
             </Grid>
         </Border>

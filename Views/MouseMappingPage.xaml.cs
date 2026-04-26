@@ -81,6 +81,7 @@ namespace lunagalLauncher.Views
             GlobalProcessFilterSwitch.Toggled += GlobalProcessFilterSwitch_Toggled;
             GlobalDisableOnTaskbarSwitch.Toggled += GlobalSpatialSwitch_Toggled;
             GlobalDisableOnScreenEdgesSwitch.Toggled += GlobalSpatialSwitch_Toggled;
+            GlobalExcludeWindowsShellUiSwitch.Toggled += GlobalSpatialSwitch_Toggled;
             GlobalContextModeDropdown.PreparingFirstOpen += (_, _) => EnsureGlobalContextModeDropdownContentBuilt();
             GlobalProcessDropdown.PreparingFirstOpen += (_, _) => EnsureGlobalProcessDropdownContentBuilt();
         }
@@ -119,8 +120,8 @@ namespace lunagalLauncher.Views
         private void GlobalSpatialSwitch_Toggled(object sender, RoutedEventArgs e)
         {
             if (_suppressGlobalSpatialFromConfig) return;
-            Log.Information("{Scope} 用户切换全局任务栏/边缘限制（任务栏={T}，边缘={E}）", LogScope,
-                GlobalDisableOnTaskbarSwitch.IsOn, GlobalDisableOnScreenEdgesSwitch.IsOn);
+            Log.Information("{Scope} 用户切换全局任务栏/边缘/系统界面限制（任务栏={T}，边缘={E}，系统界面={S}）", LogScope,
+                GlobalDisableOnTaskbarSwitch.IsOn, GlobalDisableOnScreenEdgesSwitch.IsOn, GlobalExcludeWindowsShellUiSwitch.IsOn);
             ScheduleAutosave();
         }
 
@@ -369,6 +370,7 @@ namespace lunagalLauncher.Views
             {
                 GlobalDisableOnTaskbarSwitch.IsOn = cfg.GlobalDisableOnTaskbar;
                 GlobalDisableOnScreenEdgesSwitch.IsOn = cfg.GlobalDisableOnScreenEdges;
+                GlobalExcludeWindowsShellUiSwitch.IsOn = cfg.GlobalExcludeWindowsShellUi;
             }
             finally
             {
@@ -376,12 +378,13 @@ namespace lunagalLauncher.Views
             }
 
             Log.Information(
-                "{Scope} 配置已同步到 UI：总开关={GlobalOn}，全局进程过滤={GlobalProc}，任务栏全局禁用={T}，边缘全局禁用={E}，规则数={RuleCount}，全局名单项={ProcItems}",
+                "{Scope} 配置已同步到 UI：总开关={GlobalOn}，全局进程过滤={GlobalProc}，任务栏全局禁用={T}，边缘全局禁用={E}，系统界面不映射={S}，规则数={RuleCount}，全局名单项={ProcItems}",
                 LogScope,
                 cfg.GlobalEnabled,
                 cfg.GlobalRestrictToProcessList,
                 cfg.GlobalDisableOnTaskbar,
                 cfg.GlobalDisableOnScreenEdges,
+                cfg.GlobalExcludeWindowsShellUi,
                 _rules.Count,
                 _globalProcessItems.Count);
         }
@@ -506,13 +509,14 @@ namespace lunagalLauncher.Views
             App.ConfigManager.SaveConfig(App.AppConfig);
             MouseMappingRuntime.ApplyFromCurrentConfig();
             Log.Debug(
-                "{Scope} 已落盘并应用运行时：总开关={On}，规则数={Count}，全局进程过滤模式索引={Mode}，全局任务栏禁用={T}，全局边缘禁用={E}",
+                "{Scope} 已落盘并应用运行时：总开关={On}，规则数={Count}，全局进程过滤模式索引={Mode}，全局任务栏禁用={T}，全局边缘禁用={E}，系统界面不映射={S}",
                 LogScope,
                 cfg.GlobalEnabled,
                 cfg.Rules.Count,
                 (int)cfg.GlobalContextMode,
                 cfg.GlobalDisableOnTaskbar,
-                cfg.GlobalDisableOnScreenEdges);
+                cfg.GlobalDisableOnScreenEdges,
+                cfg.GlobalExcludeWindowsShellUi);
         }
 
         /// <summary>将页顶「全局进程过滤」写回 <see cref="MouseMappingConfig"/>（与规则列表独立持久化）。</summary>
@@ -528,6 +532,7 @@ namespace lunagalLauncher.Views
                 .ToList();
             cfg.GlobalDisableOnTaskbar = GlobalDisableOnTaskbarSwitch.IsOn;
             cfg.GlobalDisableOnScreenEdges = GlobalDisableOnScreenEdgesSwitch.IsOn;
+            cfg.GlobalExcludeWindowsShellUi = GlobalExcludeWindowsShellUiSwitch.IsOn;
         }
 
         private void UpdateGlobalProcessFilterDetailsVisibility()

@@ -194,7 +194,7 @@ namespace lunagalLauncher.Core
                                 Type = GpuType.NVIDIA
                             };
                             AllGpus.Add(gpu);
-                            Log.Information("检测到 NVIDIA GPU: {Name} (索引: {Index}, 显存: {Vram} MB)", 
+                            Log.Information("检测到 NVIDIA GPU: {Name} (索引: {Index}, 显存: {Vram} MB)",
                                 gpu.Name, gpu.Index, gpu.VramMB);
                         }
                     }
@@ -228,10 +228,10 @@ namespace lunagalLauncher.Core
                 foreach (ManagementObject obj in searcher.Get())
                 {
                     string name = obj["Name"]?.ToString() ?? string.Empty;
-                    
+
                     // 检查是否为 AMD GPU
                     // Check if it's an AMD GPU
-                    if (name.Contains("AMD", StringComparison.OrdinalIgnoreCase) || 
+                    if (name.Contains("AMD", StringComparison.OrdinalIgnoreCase) ||
                         name.Contains("ATI", StringComparison.OrdinalIgnoreCase) ||
                         name.Contains("Radeon", StringComparison.OrdinalIgnoreCase))
                     {
@@ -260,7 +260,7 @@ namespace lunagalLauncher.Core
                         };
 
                         amdGpusList.Add(gpu);
-                        Log.Information("检测到 AMD GPU: {Name} (索引: {Index}, 显存: {Vram} MB)", 
+                        Log.Information("检测到 AMD GPU: {Name} (索引: {Index}, 显存: {Vram} MB)",
                             gpu.Name, gpu.Index, gpu.VramMB);
                     }
                 }

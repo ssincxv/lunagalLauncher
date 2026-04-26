@@ -248,7 +248,7 @@ namespace lunagalLauncher
         }
 
         /// <summary>
-        /// 全量导入配置后，将主窗口大小/位置/最大化状态与当前 <see cref="AppConfig.WindowSettings"/> 对齐。
+        /// 全量导入配置后，将主窗口大小/位置/最大化状态与当前 <see cref="Data.AppConfig"/> 中的 <see cref="Data.WindowSettings"/> 对齐。
         /// </summary>
         public void ReapplyWindowLayoutFromConfig()
         {
@@ -374,7 +374,7 @@ namespace lunagalLauncher
                     settings.X = appWindow.Position.X;
                     settings.Y = appWindow.Position.Y;
 
-                    Log.Information("保存窗口设置: 大小={Width}x{Height}, 位置=({X},{Y})", 
+                    Log.Information("保存窗口设置: 大小={Width}x{Height}, 位置=({X},{Y})",
                         settings.Width, settings.Height, settings.X, settings.Y);
                 }
                 else
