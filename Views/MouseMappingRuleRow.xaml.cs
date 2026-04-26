@@ -50,6 +50,16 @@ namespace lunagalLauncher.Views
         private readonly ObservableCollection<string> _processItems = new();
         private bool _combosInitialized;
 
+        private RuleOptionListDropdownContent? _triggerLazyContent;
+        private RuleOptionListDropdownContent? _behaviorLazyContent;
+        private RuleOptionListDropdownContent? _actionLazyContent;
+        private RuleOptionListDropdownContent? _simMouseLazyContent;
+        private RuleOptionListDropdownContent? _contextModeLazyContent;
+        private RuleProcessFilterDropdownContent? _ruleProcessFilterLazyContent;
+
+        private ItemsControl? ProcessItemsControl;
+        private ScrollViewer? ProcessListScrollViewer;
+
         private const int MsHoldMin = 0;
         private const int MsHoldMax = 600000;
         private const int MsHoldStep = 10;
@@ -71,6 +81,10 @@ namespace lunagalLauncher.Views
             "单击 (Click)", "长按 (Hold)", "双击 (DoubleClick)", "连击 (MultiClick)"
         };
         private static readonly string[] BehaviorLabels = { "触发一次 (FireOnce)", "按住持续连发 (RepeatWhileHeld)" };
+
+        /// <summary><see cref="RefreshBehaviorOptionsForTrigger"/> 会改为单元素或完整列表；行为下拉首次打开时取此源。</summary>
+        private string[] _behaviorDropdownOptionsSource = BehaviorLabels;
+
         private static readonly string[] ActionLabels = { "模拟鼠标键", "组合键", "切换 Magpie 全屏缩放" };
         private static readonly string[] SimMouseLabels =
         {
@@ -88,9 +102,82 @@ namespace lunagalLauncher.Views
         public MouseMappingRuleRow()
         {
             InitializeComponent();
-            InitializeCombos();
+            TriggerDropdown.PreparingFirstOpen += (_, _) => EnsureTriggerDropdownContentBuilt();
+            BehaviorDropdown.PreparingFirstOpen += (_, _) => EnsureBehaviorDropdownContentBuilt();
+            ActionDropdown.PreparingFirstOpen += (_, _) => EnsureActionDropdownContentBuilt();
+            SimMouseDropdown.PreparingFirstOpen += (_, _) => EnsureSimMouseDropdownContentBuilt();
+            ContextModeDropdown.PreparingFirstOpen += (_, _) => EnsureContextModeDropdownContentBuilt();
+            ProcessDropdown.PreparingFirstOpen += (_, _) => EnsureProcessDropdownContentBuilt();
             Loaded += MouseMappingRuleRow_Loaded;
             Unloaded += MouseMappingRuleRow_Unloaded;
+        }
+
+        private void EnsureTriggerDropdownContentBuilt()
+        {
+            if (TriggerDropdown.Content != null) return;
+            var root = new RuleOptionListDropdownContent(this, RuleOptionDropdownKind.Trigger, 240);
+            _triggerLazyContent = root;
+            TriggerDropdown.Content = root;
+            root.ItemsRepeaterHost.ItemsSource = TriggerLabels;
+        }
+
+        private void EnsureBehaviorDropdownContentBuilt()
+        {
+            if (BehaviorDropdown.Content != null) return;
+            var root = new RuleOptionListDropdownContent(this, RuleOptionDropdownKind.Behavior, 180);
+            _behaviorLazyContent = root;
+            BehaviorDropdown.Content = root;
+            root.ItemsRepeaterHost.ItemsSource = _behaviorDropdownOptionsSource;
+        }
+
+        private void EnsureActionDropdownContentBuilt()
+        {
+            if (ActionDropdown.Content != null) return;
+            var root = new RuleOptionListDropdownContent(this, RuleOptionDropdownKind.Action, 160);
+            _actionLazyContent = root;
+            ActionDropdown.Content = root;
+            root.ItemsRepeaterHost.ItemsSource = ActionLabels;
+        }
+
+        private void EnsureSimMouseDropdownContentBuilt()
+        {
+            if (SimMouseDropdown.Content != null) return;
+            var root = new RuleOptionListDropdownContent(this, RuleOptionDropdownKind.SimMouse, 240);
+            _simMouseLazyContent = root;
+            SimMouseDropdown.Content = root;
+            root.ItemsRepeaterHost.ItemsSource = SimMouseLabels;
+        }
+
+        private void EnsureContextModeDropdownContentBuilt()
+        {
+            if (ContextModeDropdown.Content != null) return;
+            var root = new RuleOptionListDropdownContent(this, RuleOptionDropdownKind.ContextMode, 180);
+            _contextModeLazyContent = root;
+            ContextModeDropdown.Content = root;
+            root.ItemsRepeaterHost.ItemsSource = ContextModeLabels;
+        }
+
+        private void EnsureProcessDropdownContentBuilt()
+        {
+            if (ProcessDropdown.Content != null) return;
+            var root = new RuleProcessFilterDropdownContent(this);
+            _ruleProcessFilterLazyContent = root;
+            ProcessDropdown.Content = root;
+            ProcessItemsControl = root.ProcessItemsControlHost;
+            ProcessListScrollViewer = root.ProcessListScrollViewerHost;
+            ProcessItemsControl.ItemsSource = _processItems;
+            Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(
+                Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+                () =>
+                {
+                    if (ProcessItemsControl == null) return;
+                    foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
+                    {
+                        if (cb.Tag is string)
+                            cb.IsChecked = true;
+                    }
+                    UpdateProcessDropdownDisplayText();
+                });
         }
 
         private void MouseMappingRuleRow_Unloaded(object sender, RoutedEventArgs e)
@@ -455,11 +542,11 @@ namespace lunagalLauncher.Views
             if (_combosInitialized) return;
             _combosInitialized = true;
 
-            TriggerDropdownItems.ItemsSource = TriggerLabels;
-            BehaviorDropdownItems.ItemsSource = BehaviorLabels;
-            ActionDropdownItems.ItemsSource = ActionLabels;
-            SimMouseDropdownItems.ItemsSource = SimMouseLabels;
-            ContextModeDropdownItems.ItemsSource = ContextModeLabels;
+            _triggerLazyContent?.ItemsRepeaterHost.ItemsSource = TriggerLabels;
+            _behaviorLazyContent?.ItemsRepeaterHost.ItemsSource = _behaviorDropdownOptionsSource;
+            _actionLazyContent?.ItemsRepeaterHost.ItemsSource = ActionLabels;
+            _simMouseLazyContent?.ItemsRepeaterHost.ItemsSource = SimMouseLabels;
+            _contextModeLazyContent?.ItemsRepeaterHost.ItemsSource = ContextModeLabels;
 
             void hook(CustomDropdown d)
             {
@@ -497,7 +584,7 @@ namespace lunagalLauncher.Views
                 }
                 SyncFromUi();
             };
-            ProcessItemsControl.ItemsSource = _processItems;
+            _ruleProcessFilterLazyContent?.ProcessItemsControlHost.ItemsSource = _processItems;
 
             RefreshBehaviorOptionsForTrigger();
         }
@@ -644,13 +731,13 @@ namespace lunagalLauncher.Views
         /// </summary>
         private void RefreshBehaviorOptionsForTrigger()
         {
-            if (BehaviorDropdownItems == null || TriggerDropdown == null) return;
+            if (TriggerDropdown == null) return;
 
             int tk = ResolveTriggerKindIndex();
             bool noRepeat = tk == (int)MouseTriggerKind.DoubleClick || tk == (int)MouseTriggerKind.MultiClick;
             string[] opts = noRepeat ? new[] { BehaviorLabels[0] } : BehaviorLabels;
-
-            BehaviorDropdownItems.ItemsSource = opts;
+            _behaviorDropdownOptionsSource = opts;
+            _behaviorLazyContent?.ItemsRepeaterHost.ItemsSource = opts;
 
             if (noRepeat || Array.IndexOf(opts, BehaviorDropdown.Text) < 0)
             {
@@ -722,10 +809,10 @@ namespace lunagalLauncher.Views
                             _processItems.Add(p.Trim());
                     }
                 }
-                ProcessItemsControl.ItemsSource = null;
-                ProcessItemsControl.ItemsSource = _processItems;
+                _ruleProcessFilterLazyContent?.ProcessItemsControlHost.ItemsSource = _processItems;
                 Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() =>
                 {
+                    if (ProcessItemsControl == null) return;
                     foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
                     {
                         if (cb.Tag is string)
@@ -985,7 +1072,7 @@ namespace lunagalLauncher.Views
 
         #region CustomDropdown 列表项
 
-        private void TriggerDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void TriggerDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
         {
             if (sender is Border { DataContext: string s })
             {
@@ -997,7 +1084,7 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void BehaviorDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void BehaviorDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
         {
             if (sender is Border { DataContext: string s })
             {
@@ -1008,7 +1095,7 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void ActionDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void ActionDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
         {
             if (sender is Border { DataContext: string s })
             {
@@ -1019,7 +1106,7 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void SimMouseDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void SimMouseDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
         {
             if (sender is Border { DataContext: string s })
             {
@@ -1029,7 +1116,7 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void ContextModeDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void ContextModeDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
         {
             if (sender is Border { DataContext: string s })
             {
@@ -1039,13 +1126,13 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void DropdownItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
+        internal void DropdownItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(255, 229, 229, 229));
         }
 
-        private void DropdownItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
+        internal void DropdownItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));

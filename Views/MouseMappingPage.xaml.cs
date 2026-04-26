@@ -61,6 +61,15 @@ namespace lunagalLauncher.Views
         /// </summary>
         private bool _hasInitializedBindings;
 
+        private GlobalContextModeDropdownContent? _globalContextModeDropdownBody;
+        private GlobalProcessFilterDropdownContent? _globalProcessDropdownBody;
+
+        /// <summary>首次打开全局「过滤模式」下拉后由 UserControl 赋值；XAML 不再生成。</summary>
+        private ItemsRepeater? GlobalContextModeDropdownItems;
+
+        private ItemsControl? GlobalProcessItemsControl;
+        private ScrollViewer? GlobalProcessListScrollViewer;
+
         public MouseMappingPage()
         {
             this.InitializeComponent();
@@ -72,6 +81,39 @@ namespace lunagalLauncher.Views
             GlobalProcessFilterSwitch.Toggled += GlobalProcessFilterSwitch_Toggled;
             GlobalDisableOnTaskbarSwitch.Toggled += GlobalSpatialSwitch_Toggled;
             GlobalDisableOnScreenEdgesSwitch.Toggled += GlobalSpatialSwitch_Toggled;
+            GlobalContextModeDropdown.PreparingFirstOpen += (_, _) => EnsureGlobalContextModeDropdownContentBuilt();
+            GlobalProcessDropdown.PreparingFirstOpen += (_, _) => EnsureGlobalProcessDropdownContentBuilt();
+        }
+
+        private void EnsureGlobalContextModeDropdownContentBuilt()
+        {
+            if (GlobalContextModeDropdown.Content != null) return;
+            var root = new GlobalContextModeDropdownContent(this);
+            _globalContextModeDropdownBody = root;
+            GlobalContextModeDropdown.Content = root;
+            GlobalContextModeDropdownItems = root.GlobalContextModeDropdownItemsHost;
+            GlobalContextModeDropdownItems.ItemsSource = GlobalContextModeLabels;
+        }
+
+        private void EnsureGlobalProcessDropdownContentBuilt()
+        {
+            if (GlobalProcessDropdown.Content != null) return;
+            var root = new GlobalProcessFilterDropdownContent(this);
+            _globalProcessDropdownBody = root;
+            GlobalProcessDropdown.Content = root;
+            GlobalProcessItemsControl = root.GlobalProcessItemsControlHost;
+            GlobalProcessListScrollViewer = root.GlobalProcessListScrollViewerHost;
+            GlobalProcessItemsControl.ItemsSource = _globalProcessItems;
+            DispatcherQueue.GetForCurrentThread()?.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            {
+                if (GlobalProcessItemsControl == null) return;
+                foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
+                {
+                    if (cb.Tag is string)
+                        cb.IsChecked = true;
+                }
+                UpdateGlobalProcessDropdownDisplayText();
+            });
         }
 
         private void GlobalSpatialSwitch_Toggled(object sender, RoutedEventArgs e)
@@ -186,6 +228,9 @@ namespace lunagalLauncher.Views
         {
             try
             {
+                if (DispatcherQueue.GetForCurrentThread() is { } dq)
+                    MouseMappingRuntime.InitializeUi(dq);
+
                 // --- 每次切入都要做的幂等工作 ---
 
                 this.AddHandler(UIElement.PointerPressedEvent, _pagePointerPressedHandler, true);
@@ -263,8 +308,8 @@ namespace lunagalLauncher.Views
             _rules = new ObservableCollection<MouseMappingRule>(cfg.Rules ?? new List<MouseMappingRule>());
             RulesListView.ItemsSource = _rules;
 
-            GlobalContextModeDropdownItems.ItemsSource = GlobalContextModeLabels;
-            GlobalProcessItemsControl.ItemsSource = _globalProcessItems;
+            _globalContextModeDropdownBody?.GlobalContextModeDropdownItemsHost.ItemsSource = GlobalContextModeLabels;
+            _globalProcessDropdownBody?.GlobalProcessItemsControlHost.ItemsSource = _globalProcessItems;
 
             // 这两个 TextChanged 订阅只挂一次即可；用 `-=` 前缀安全起见（同一 lambda 对象每次是新的，
             // 所以实际上只能挂一次——首次调用时）。为避免字段存储委托再做 dedupe，仅靠
@@ -300,6 +345,7 @@ namespace lunagalLauncher.Views
             UpdateGlobalProcessFilterDetailsVisibility();
             DispatcherQueue.GetForCurrentThread()?.TryEnqueue(DispatcherQueuePriority.Low, () =>
             {
+                if (GlobalProcessItemsControl == null) return;
                 foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
                 {
                     if (cb.Tag is string)
@@ -509,19 +555,26 @@ namespace lunagalLauncher.Views
 
         private void UpdateGlobalProcessDropdownDisplayText()
         {
-            var selected = new List<string>();
-            foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
+            if (GlobalProcessItemsControl != null)
             {
-                if (cb.IsChecked == true && cb.Tag is string path)
-                    selected.Add(path);
+                var selected = new List<string>();
+                foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
+                {
+                    if (cb.IsChecked == true && cb.Tag is string path)
+                        selected.Add(path);
+                }
+                if (selected.Count == 0)
+                    GlobalProcessDropdown.Text = string.Empty;
+                else
+                    GlobalProcessDropdown.Text = $"已选 {selected.Count} 项";
             }
-            if (selected.Count == 0)
-                GlobalProcessDropdown.Text = string.Empty;
+            else if (_globalProcessItems.Count > 0)
+                GlobalProcessDropdown.Text = $"已选 {_globalProcessItems.Count} 项";
             else
-                GlobalProcessDropdown.Text = $"已选 {selected.Count} 项";
+                GlobalProcessDropdown.Text = string.Empty;
         }
 
-        private void GlobalProcessItemBorder_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void GlobalProcessItemBorder_Tapped(object sender, TappedRoutedEventArgs e)
         {
             try
             {
@@ -539,21 +592,22 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void GlobalProcessItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
+        internal void GlobalProcessItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(255, 229, 229, 229));
         }
 
-        private void GlobalProcessItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
+        internal void GlobalProcessItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
         }
 
-        private void GlobalProcessSelectAll_Click(object sender, RoutedEventArgs e)
+        internal void GlobalProcessSelectAll_Click(object sender, RoutedEventArgs e)
         {
             Log.Information("{Scope} 全局过滤名单：全选", LogScope);
+            if (GlobalProcessItemsControl == null) return;
             foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
                 cb.IsChecked = true;
             UpdateGlobalProcessDropdownDisplayText();
@@ -561,9 +615,10 @@ namespace lunagalLauncher.Views
             ScrollGlobalProcessFilterListToTop();
         }
 
-        private void GlobalProcessClearChecks_Click(object sender, RoutedEventArgs e)
+        internal void GlobalProcessClearChecks_Click(object sender, RoutedEventArgs e)
         {
             Log.Information("{Scope} 全局过滤名单：清空勾选", LogScope);
+            if (GlobalProcessItemsControl == null) return;
             foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
                 cb.IsChecked = false;
             UpdateGlobalProcessDropdownDisplayText();
@@ -586,9 +641,10 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private async void GlobalProcessDeleteSelected_Click(object sender, RoutedEventArgs e)
+        internal async void GlobalProcessDeleteSelected_Click(object sender, RoutedEventArgs e)
         {
             var remove = new List<string>();
+            if (GlobalProcessItemsControl == null) return;
             foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
             {
                 if (cb.IsChecked == true && cb.Tag is string path)
@@ -614,14 +670,12 @@ namespace lunagalLauncher.Views
             {
                 await CustomDropdownModalPrep.CloseIfOpenAndWaitForAnimationAsync(GlobalProcessDropdown);
 
-                if (!App.TryGetMainWindowHandle(out var hwnd))
-                {
-                    Log.Warning("{Scope} 浏览 exe 时主窗口为空", LogScope);
-                    return;
-                }
+                if (!App.TryGetMainWindowHandle(out _))
+                    Log.Warning("{Scope} 浏览 exe 时主窗口为空，仍将使用 file-picker 子进程", LogScope);
 
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(_globalProcessItems);
-                string? path = await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, "可执行文件|*.exe", "选择要加入全局列表的程序", initDir);
+                string? path = await Win32FileDialog.ShowOpenFileDialogForMainWindowAsync(
+                    "可执行文件|*.exe", "选择要加入全局列表的程序", initDir);
 
                 if (string.IsNullOrEmpty(path)) return;
                 if (!_globalProcessItems.Contains(path))
@@ -642,21 +696,27 @@ namespace lunagalLauncher.Views
 
         private void RefreshGlobalProcessList()
         {
-            GlobalProcessItemsControl.ItemsSource = null;
-            GlobalProcessItemsControl.ItemsSource = _globalProcessItems;
-            DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() =>
+            if (GlobalProcessItemsControl != null)
             {
-                foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
+                GlobalProcessItemsControl.ItemsSource = null;
+                GlobalProcessItemsControl.ItemsSource = _globalProcessItems;
+                DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() =>
                 {
-                    if (cb.Tag is string)
-                        cb.IsChecked = true;
-                }
+                    if (GlobalProcessItemsControl == null) return;
+                    foreach (var cb in FindVisualChildren<CheckBox>(GlobalProcessItemsControl))
+                    {
+                        if (cb.Tag is string)
+                            cb.IsChecked = true;
+                    }
+                    UpdateGlobalProcessDropdownDisplayText();
+                    ScrollGlobalProcessFilterListToTop();
+                });
+            }
+            else
                 UpdateGlobalProcessDropdownDisplayText();
-                ScrollGlobalProcessFilterListToTop();
-            });
         }
 
-        private void GlobalContextModeDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void GlobalContextModeDropdownItem_Tapped(object sender, TappedRoutedEventArgs e)
         {
             if (sender is Border { DataContext: string s })
             {
@@ -667,13 +727,13 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void GlobalDropdownItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
+        internal void GlobalDropdownItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(255, 229, 229, 229));
         }
 
-        private void GlobalDropdownItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
+        internal void GlobalDropdownItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));

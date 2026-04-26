@@ -15,8 +15,17 @@ namespace lunagalLauncher.Services
         private static MouseInputNative.LowLevelMouseProc? _proc;
         private static IntPtr _kbdHook = IntPtr.Zero;
         private static MouseInputNative.LowLevelKeyboardProc? _kbdProc;
-        private static MouseMappingConfig? _config;
+        // volatile：Apply 在 UI 线程写 _config；钩子回调跑在独立 HookThread 上读取。
+        // 引用类型赋值本身原子，volatile 保证钩子线程立即看到新引用，不必加锁。
+        private static volatile MouseMappingConfig? _config;
         private static DispatcherQueue? _dispatcher;
+
+        /// <summary>
+        /// 跨线程守护 <see cref="_rawFsm"/> 与 <see cref="_hidLastSig"/>：
+        /// RawInputMouseBridge 的 WM_INPUT 子类仍跑在 UI 线程，LL 钩回调在 HookThread，
+        /// 两端都会写这两个 dict，须用最小粒度锁保证字典自身结构安全。
+        /// </summary>
+        private static readonly object _rawFsmGate = new();
         private static readonly DispatcherQueueTimer?[] _repeatTimers = new DispatcherQueueTimer?[5];
         private static readonly ButtonFsm[] _btn = { new(), new(), new(), new(), new() };
 
@@ -52,40 +61,33 @@ namespace lunagalLauncher.Services
 
         private static volatile bool _pollThreadStarted;
 
-        /// <summary>嵌套计数：>0 时引擎处于「暂停」状态，所有钩子卸载；回到 0 时自动重装。</summary>
+        /// <summary>嵌套计数：>0 时引擎处于「暂停」状态；回调内旁路映射（软暂停不卸载 LL 钩子）。</summary>
         private static int _suspendCount;
-        /// <summary>暂停前保留的配置，以便 Resume 时原样恢复钩子布局。</summary>
-        private static MouseMappingConfig? _configBeforeSuspend;
+
+        /// <summary>暂停期间是否收到过 <see cref="Apply"/>（需在恢复时全量重装钩子布局）。</summary>
+        private static bool _suspendApplyPending;
+
+        /// <summary>当前是否已安装本引擎的鼠标低层钩子。</summary>
+        internal static bool HasMouseLowLevelHook => _mouseHook != IntPtr.Zero;
 
         /// <summary>
-        /// 临时暂停鼠标/键盘 LL 钩子与轮询（支持嵌套）。<br/>
-        /// 用法：打开 Win32 模态对话框（尤其是 comdlg32 文件对话框——内部会弹 shell 右键菜单 + 加载第三方
-        /// shell 扩展）前调用本方法，对话框关闭后必须在 finally 里调 <see cref="ResumeHooks"/>。<br/>
-        /// 这样可以确保 LL 钩子回调与 shell 上下文菜单/shell 扩展互不影响，避免诸如
-        /// 「文件对话框里右键 → 进程无日志直接终止」的 native 崩溃。
+        /// <see cref="SuspendHooks"/> 激活期间为 true；主窗口 Raw Input 在此窗口期跳过 <c>WM_INPUT</c> 解析，减轻与 IFileDialog 模态叠加之争用。
+        /// </summary>
+        internal static bool IsFileDialogSuspendActive() => System.Threading.Volatile.Read(ref _suspendCount) > 0;
+
+        /// <summary>
+        /// 文件对话框打开前调用（支持嵌套）：递增 <see cref="_suspendCount"/>，
+        /// <strong>不卸载</strong>物理钩子——钩子常驻 HookThread，回调内检测到 suspendCount&gt;0 后直接
+        /// <c>CallNextHookEx</c> 旁路映射即可，从根本上消除"半卸载窗口期"引发的崩溃。
         /// </summary>
         internal static IDisposable SuspendHooks()
         {
-            int now = System.Threading.Interlocked.Increment(ref _suspendCount);
-            if (now == 1)
-            {
-                try
-                {
-                    _configBeforeSuspend = _config;
-                    UninstallMouseHook();
-                    UninstallKeyboardHook();
-                    Log.Information("鼠标映射引擎：已暂停（为模态对话框隔离）");
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning(ex, "鼠标映射引擎：暂停钩子时异常（忽略）");
-                }
-            }
-
+            System.Threading.Interlocked.Increment(ref _suspendCount);
+            Log.Debug("鼠标映射引擎：进入暂停（suspendCount={Count}）", System.Threading.Volatile.Read(ref _suspendCount));
             return new HookSuspension();
         }
 
-        /// <summary>恢复 <see cref="SuspendHooks"/> 取消的钩子；计数归零时按暂停前配置重装。</summary>
+        /// <summary>恢复 <see cref="SuspendHooks"/>；计数归零时若暂停期间有过 Apply 则全量重装。</summary>
         internal static void ResumeHooks()
         {
             int now = System.Threading.Interlocked.Decrement(ref _suspendCount);
@@ -95,20 +97,24 @@ namespace lunagalLauncher.Services
                 return;
             }
 
-            if (now == 0 && _configBeforeSuspend != null)
+            if (now != 0)
+                return;
+
+            Log.Debug("鼠标映射引擎：退出暂停，suspendApplyPending={Pending}", _suspendApplyPending);
+
+            // 仅在暂停期间收到过 Apply（配置热重载）时才全量重装钩子；
+            // 否则钩子本就常驻，无需重装。
+            if (_suspendApplyPending && _config != null)
             {
+                _suspendApplyPending = false;
                 try
                 {
-                    Apply(_configBeforeSuspend);
-                    Log.Information("鼠标映射引擎：已恢复（模态对话框已关闭）");
+                    Apply(_config);
+                    Log.Debug("鼠标映射引擎：已恢复（暂停期间配置变更，全量 Apply）");
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning(ex, "鼠标映射引擎：恢复钩子时异常（忽略）");
-                }
-                finally
-                {
-                    _configBeforeSuspend = null;
+                    Log.Warning(ex, "鼠标映射引擎：恢复时全量 Apply 异常（忽略）");
                 }
             }
         }
@@ -123,12 +129,134 @@ namespace lunagalLauncher.Services
             }
         }
 
+        /// <summary>
+        /// 文件对话框模态期间：<see cref="SuspendHooks"/> 递增计数（Raw Input 等仍旁路）并在
+        /// <see cref="HookThread"/> 上<strong>同步卸下</strong>鼠标/键盘 LL 钩，关闭后仅当进入前对应钩已安装时再恢复，
+        /// 减轻 Shell 右键菜单与本进程全局钩链的交互崩溃。
+        /// </summary>
+        internal static IDisposable EnterFileDialogHookIsolation()
+        {
+            IDisposable suspend = SuspendHooks();
+            try
+            {
+                PrepareLowLevelHooksRemovalForFileDialog();
+                HookThread.EnsureStarted();
+                var flags = new bool[2];
+                HookThread.Invoke(() =>
+                {
+                    flags[0] = _mouseHook != IntPtr.Zero;
+                    flags[1] = _kbdHook != IntPtr.Zero;
+                    UnhookMouseLowLevelOnHookThread();
+                    UnhookKeyboardLowLevelOnHookThread();
+                });
+                return new FileDialogHookIsolationScope(suspend, flags[0], flags[1]);
+            }
+            catch
+            {
+                suspend.Dispose();
+                throw;
+            }
+        }
+
+        private sealed class FileDialogHookIsolationScope : IDisposable
+        {
+            private readonly IDisposable _suspend;
+            private readonly bool _restoreMouse;
+            private readonly bool _restoreKbd;
+            private int _disposed;
+
+            public FileDialogHookIsolationScope(IDisposable suspend, bool restoreMouse, bool restoreKbd)
+            {
+                _suspend = suspend;
+                _restoreMouse = restoreMouse;
+                _restoreKbd = restoreKbd;
+            }
+
+            public void Dispose()
+            {
+                if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0) return;
+                try
+                {
+                    HookThread.Invoke(() =>
+                    {
+                        if (_config != null && _restoreMouse)
+                            InstallMouseLowLevelOnHookThreadAfterRemoval();
+                        if (_config != null && _restoreKbd)
+                            InstallKeyboardLowLevelOnHookThreadAfterRemoval();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "鼠标映射引擎：文件对话框结束后恢复 LL 钩异常（仍将恢复 suspend 计数）");
+                }
+
+                try
+                {
+                    EnsurePollingThread();
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "鼠标映射引擎：文件对话框 EnsurePollingThread 异常（忽略）");
+                }
+
+                _suspend.Dispose();
+            }
+        }
+
+        /// <summary>文件对话框进入前：与 <see cref="UninstallMouseHook"/> 的 UI 侧清理一致，并清零键盘物理态。</summary>
+        private static void PrepareLowLevelHooksRemovalForFileDialog()
+        {
+            for (int i = 0; i < _repeatTimers.Length; i++)
+            {
+                _repeatTimers[i]?.Stop();
+                _repeatTimers[i] = null;
+            }
+
+            ResetButtonFsm();
+            for (int i = 0; i < 5; i++)
+                System.Threading.Volatile.Write(ref _physicalDown[i], 0);
+            for (int i = 0; i < 256; i++)
+                System.Threading.Volatile.Write(ref _physicalKbdDown[i], 0);
+        }
+
+        /// <summary>仅在 HookThread 调用：卸下鼠标 LL 钩。</summary>
+        private static void UnhookMouseLowLevelOnHookThread()
+        {
+            if (_mouseHook == IntPtr.Zero) return;
+            MouseInputNative.UnhookWindowsHookEx(_mouseHook);
+            _mouseHook = IntPtr.Zero;
+            Log.Information("鼠标映射：鼠标低层钩子已卸载（HookThread）");
+        }
+
+        /// <summary>仅在 HookThread 调用：在曾卸下后恢复鼠标 LL 钩（与 <see cref="InstallMouseHook"/> 中 Post 体一致）。</summary>
+        private static void InstallMouseLowLevelOnHookThreadAfterRemoval()
+        {
+            if (_mouseHook != IntPtr.Zero) return;
+            _proc = HookCallback;
+            _mouseHook = MouseInputNative.SetWindowsHookEx(MouseInputNative.WH_MOUSE_LL, _proc,
+                IntPtr.Zero, 0);
+            if (_mouseHook == IntPtr.Zero)
+            {
+                Log.Error("SetWindowsHookEx(WH_MOUSE_LL) 失败 err={Err}", Marshal.GetLastWin32Error());
+                return;
+            }
+
+            for (int i = 0; i < 5; i++)
+            {
+                int vk = VkForPhysicalMouseSlot(i);
+                System.Threading.Volatile.Write(ref _physicalDown[i],
+                    (MouseInputNative.GetAsyncKeyState(vk) & 0x8000) != 0 ? 1 : 0);
+            }
+
+            Log.Information("鼠标映射：低层钩子已安装（HookThread，文件对话框结束后恢复）");
+        }
+
         internal static void Apply(MouseMappingConfig config)
         {
-            // 暂停期间收到的 Apply 仅保存配置不装钩子，避免覆盖正在隔离中的钩子状态
+            // 暂停期间收到的 Apply 仅缓存配置不装钩子，等 ResumeHooks 归零后再全量重装
             if (System.Threading.Volatile.Read(ref _suspendCount) > 0)
             {
-                _configBeforeSuspend = config;
+                _suspendApplyPending = true;
                 if (config.Rules != null)
                     MouseMappingMigration.NormalizeActionWhenKeyComboTextPresent(config.Rules);
                 _config = config;
@@ -145,44 +273,55 @@ namespace lunagalLauncher.Services
                 config.GlobalEnabled, config.Rules?.Count ?? 0, enabledCount);
 
             // 全局关闭或无启用规则时不跑 SendInput 自测：避免首开期无映射用户仍被输入栈打断约 100ms 级体感。
-            if (!config.GlobalEnabled || config.Rules == null || !config.Rules.Any(r => r.Enabled))
+            InstallMappingHooksFromCurrentConfig();
+        }
+
+        /// <summary>
+        /// 在钩子已卸载的前提下，按当前配置安装鼠标/键盘钩与 Raw Input（与 <see cref="Apply"/> 尾部逻辑一致）。
+        ///
+        /// <para>
+        /// 钩子搬到 HookThread 之后策略变为"首启即常驻"：
+        /// 只要 UI 已注册过 MouseMappingRuntime（无论是否有启用规则），鼠标 + 键盘两个 LL 钩就都装上。
+        /// 回调内部若 <c>_config?.GlobalEnabled == false</c> 或无匹配规则仍会 early-return <c>CallNextHookEx</c>，
+        /// 对用户零感知；带来的收益是"新增第一条规则"不用现场再装钩，也避免装/卸钩抖动。
+        /// </para>
+        /// </summary>
+        private static void InstallMappingHooksFromCurrentConfig()
+        {
+            var config = _config;
+            if (config == null)
             {
-                Log.Information("鼠标映射引擎：未安装钩子（已关闭或无规则）");
-                _keyboardRepeatVks = Array.Empty<int>();
                 EnsurePollingThread();
                 return;
             }
 
-            TestSendInputCapability();
+            // SendInput 自测在部分环境阻塞 UI 线程序 ~100ms，改在池化线程跑；与钩子安装顺序无关。
+            _ = System.Threading.Tasks.Task.Run(static () => TestSendInputCapability());
 
-            bool needMouse = config.Rules.Any(r => r.Enabled && r.PhysicalKeyVirtualKey == 0
-                    && r.PhysicalMouseRawButtonFlag == 0 && r.PhysicalMouseRawButtonsMask == 0
-                    && r.PhysicalMouseHidSignature == 0);
-            bool needRaw = config.Rules.Any(r => r.Enabled && r.PhysicalKeyVirtualKey == 0
+            bool hasRawRule = config.Rules != null && config.Rules.Any(r => r.Enabled && r.PhysicalKeyVirtualKey == 0
                     && (r.PhysicalMouseRawButtonFlag != 0 || r.PhysicalMouseRawButtonsMask != 0
                         || r.PhysicalMouseHidSignature != 0));
-            bool needKeyboard = config.Rules.Any(r => r.Enabled && r.PhysicalKeyVirtualKey != 0);
-            _keyboardRepeatVks = config.Rules
-                .Where(r => r.Enabled
-                            && r.PhysicalKeyVirtualKey != 0
-                            && r.Behavior == MouseBehaviorMode.RepeatWhileHeld
-                            && (r.Trigger == MouseTriggerKind.Click || r.Trigger == MouseTriggerKind.Hold))
-                .Select(r => r.PhysicalKeyVirtualKey)
-                .Distinct()
-                .ToArray();
+            _keyboardRepeatVks = config.Rules == null
+                ? Array.Empty<int>()
+                : config.Rules
+                    .Where(r => r.Enabled
+                                && r.PhysicalKeyVirtualKey != 0
+                                && r.Behavior == MouseBehaviorMode.RepeatWhileHeld
+                                && (r.Trigger == MouseTriggerKind.Click || r.Trigger == MouseTriggerKind.Hold))
+                    .Select(r => r.PhysicalKeyVirtualKey)
+                    .Distinct()
+                    .ToArray();
 
-            // 鼠标 LL 钩子：追踪物理鼠标键状态 + 非连发规则；键盘 LL 钩子：物理键为 vk 的规则。
-            // RepeatWhileHeld 由轮询线程处理，避免回调里 SendInput 重入超时。
-            if (needMouse)
-                InstallMouseHook();
-            if (needKeyboard)
-                InstallKeyboardHook();
+            // 钩子常驻：两个 LL 钩都装上。回调内部已有 _config / GlobalEnabled / 匹配规则短路，零规则时几乎不耗 CPU。
+            // 这样：(1) 用户切入映射页/增加规则不用现场装钩；(2) 避免 UI 线程卡顿映射成鼠标卡（钩子在 HookThread）。
+            InstallMouseHook();
+            InstallKeyboardHook();
 
-            Log.Information("鼠标映射引擎：钩子 鼠标={M} 键盘={K} 键盘连发轮询 vk 数={N} RawInput={R}",
-                needMouse, needKeyboard, _keyboardRepeatVks.Length, needRaw);
+            Log.Information("鼠标映射引擎：钩子常驻（鼠标 + 键盘，HookThread） 键盘连发轮询 vk 数={N} RawInput 规则={R}",
+                _keyboardRepeatVks.Length, hasRawRule);
             EnsurePollingThread();
 
-            if (needRaw)
+            if (hasRawRule)
             {
                 try
                 {
@@ -314,6 +453,13 @@ namespace lunagalLauncher.Services
             {
                 try
                 {
+                    // 文件对话框模态期间映射钩已卸：仍跳过连发轮询，减轻与 Shell 争用。
+                    if (IsFileDialogSuspendActive())
+                    {
+                        System.Threading.Thread.Sleep(50);
+                        continue;
+                    }
+
                     if (_config == null || !_config.GlobalEnabled)
                     {
                         System.Threading.Thread.Sleep(100);
@@ -772,31 +918,43 @@ namespace lunagalLauncher.Services
             _ => $"Unknown(0x{rid:X})"
         };
 
+        /// <summary>
+        /// 安装 WH_MOUSE_LL。<strong>必须在钩子线程内调用</strong>——LL 钩子回调只会发给
+        /// "调用 SetWindowsHookEx 的那个线程"的消息队列，因此装钩/卸钩统一由 HookThread 执行。
+        /// 使用 <see cref="HookThread.Post"/> fire-and-forget：UI 线程不等待，避免首启/切页/弹对话框时
+        /// 把钩子线程往返耗时算进用户感知。FIFO 保证 Install/Uninstall 顺序不乱。
+        /// </summary>
         private static void InstallMouseHook()
         {
-            if (_mouseHook != IntPtr.Zero) return;
-            _proc = HookCallback;
-            _mouseHook = MouseInputNative.SetWindowsHookEx(MouseInputNative.WH_MOUSE_LL, _proc,
-                IntPtr.Zero, 0);
-            if (_mouseHook == IntPtr.Zero)
+            HookThread.EnsureStarted();
+            HookThread.Post(() =>
             {
-                Log.Error("SetWindowsHookEx(WH_MOUSE_LL) 失败");
-            }
-            else
-            {
-                // 从 GetAsyncKeyState 初始化物理按键状态（安装钩子瞬间无注入活动，读数可靠）
-                for (int i = 0; i < 5; i++)
+                if (_mouseHook != IntPtr.Zero) return;
+                _proc = HookCallback;
+                _mouseHook = MouseInputNative.SetWindowsHookEx(MouseInputNative.WH_MOUSE_LL, _proc,
+                    IntPtr.Zero, 0);
+                if (_mouseHook == IntPtr.Zero)
                 {
-                    int vk = VkForPhysicalMouseSlot(i);
-                    System.Threading.Volatile.Write(ref _physicalDown[i],
-                        (MouseInputNative.GetAsyncKeyState(vk) & 0x8000) != 0 ? 1 : 0);
+                    Log.Error("SetWindowsHookEx(WH_MOUSE_LL) 失败 err={Err}", Marshal.GetLastWin32Error());
                 }
-                Log.Information("鼠标映射：低层钩子已安装（含物理按键状态追踪）");
-            }
+                else
+                {
+                    // 从 GetAsyncKeyState 初始化物理按键状态（安装钩子瞬间无注入活动，读数可靠）
+                    for (int i = 0; i < 5; i++)
+                    {
+                        int vk = VkForPhysicalMouseSlot(i);
+                        System.Threading.Volatile.Write(ref _physicalDown[i],
+                            (MouseInputNative.GetAsyncKeyState(vk) & 0x8000) != 0 ? 1 : 0);
+                    }
+                    Log.Information("鼠标映射：低层钩子已安装（HookThread，含物理按键状态追踪）");
+                }
+            });
         }
 
         private static void UninstallMouseHook()
         {
+            // _repeatTimers 是 UI 的 DispatcherQueueTimer，必须在 UI 线程 Stop；
+            // 这部分状态清理与装钩线程无关，直接在调用线程做。
             for (int i = 0; i < _repeatTimers.Length; i++)
             {
                 _repeatTimers[i]?.Stop();
@@ -810,9 +968,11 @@ namespace lunagalLauncher.Services
                 System.Threading.Volatile.Write(ref _physicalDown[i], 0);
 
             if (_mouseHook == IntPtr.Zero) return;
-            MouseInputNative.UnhookWindowsHookEx(_mouseHook);
-            _mouseHook = IntPtr.Zero;
-            Log.Information("鼠标映射：鼠标低层钩子已卸载");
+
+            // UnhookWindowsHookEx 与 SetWindowsHookEx 必须同线程。fire-and-forget：
+            // _suspendCount 已在 SuspendHooks 里 +1，即使物理 Unhook 稍后才完成，回调
+            // 进来首个分支就会看到 _suspendCount>0 直接 CallNextHookEx，不做任何映射工作。
+            HookThread.Post(UnhookMouseLowLevelOnHookThread);
         }
 
         // 键盘钩子相关方法已迁移到 MouseMappingEngine.Keyboard.cs（同一 partial class）。
@@ -830,8 +990,12 @@ namespace lunagalLauncher.Services
                 _btn[i].FireOnceKeyComboSentOnDown = false;
                 _btn[i].UpSequence = 0;
             }
-            _rawFsm.Clear();
-            _hidLastSig.Clear();
+            // _rawFsm / _hidLastSig 跨 UI 线程（WM_INPUT 子类）+ HookThread 共享，清空时加锁。
+            lock (_rawFsmGate)
+            {
+                _rawFsm.Clear();
+                _hidLastSig.Clear();
+            }
         }
 
         /// <summary>
@@ -856,7 +1020,18 @@ namespace lunagalLauncher.Services
 
         private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode < 0 || _config == null || !_config.GlobalEnabled)
+            if (nCode < 0)
+                return MouseInputNative.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+
+            // 文件对话框期间钩子常驻，suspendCount>0 时一行短路：不做任何映射工作，
+            // Shell 的右键菜单等系统事件全部原样转发，不干扰 IFileDialog 上下文菜单。
+            if (System.Threading.Volatile.Read(ref _suspendCount) > 0)
+                return MouseInputNative.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
+
+            // 读取一次 volatile 引用到局部变量，后续所有访问都用本地快照；
+            // 防止"check _config != null" 之后另一线程又把 _config 清成 null 造成的 NRE。
+            var config = _config;
+            if (config == null || !config.GlobalEnabled)
                 return MouseInputNative.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
 
             var info = Marshal.PtrToStructure<MouseInputNative.MSLLHOOKSTRUCT>(lParam);
@@ -878,13 +1053,17 @@ namespace lunagalLauncher.Services
                     if (dx * dx + dy * dy > _btn[bi].MoveToleranceSq)
                         _btn[bi].MovedTooFar = true;
                 }
-                foreach (var kv in _rawFsm)
+                // _rawFsm 由 UI 线程 WM_INPUT 子类与 HookThread 共同写入；foreach 遍历须锁，避免 Dictionary 结构被并发修改抛 InvalidOperation。
+                lock (_rawFsmGate)
                 {
-                    if (!kv.Value.Down) continue;
-                    int dx = info.pt.X - kv.Value.DownX;
-                    int dy = info.pt.Y - kv.Value.DownY;
-                    if (dx * dx + dy * dy > kv.Value.MoveToleranceSq)
-                        kv.Value.MovedTooFar = true;
+                    foreach (var kv in _rawFsm)
+                    {
+                        if (!kv.Value.Down) continue;
+                        int dx = info.pt.X - kv.Value.DownX;
+                        int dy = info.pt.Y - kv.Value.DownY;
+                        if (dx * dx + dy * dy > kv.Value.MoveToleranceSq)
+                            kv.Value.MovedTooFar = true;
+                    }
                 }
                 return MouseInputNative.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
             }
@@ -1400,19 +1579,23 @@ namespace lunagalLauncher.Services
             if (ShouldSkipMouseMappingBecauseCursorOnOwnForegroundUi(pt)) return;
 
             ulong key = downFlag;
-            if (!_rawFsm.TryGetValue(key, out var fsm))
+            // 与 HookThread（HookCallback 的 WM_MOUSEMOVE 分支）并发读写 _rawFsm，加锁保护结构。
+            lock (_rawFsmGate)
             {
-                fsm = new ButtonFsm();
-                _rawFsm[key] = fsm;
+                if (!_rawFsm.TryGetValue(key, out var fsm))
+                {
+                    fsm = new ButtonFsm();
+                    _rawFsm[key] = fsm;
+                }
+                fsm.Down = true;
+                fsm.DownMs = Environment.TickCount64;
+                fsm.DownX = pt.X;
+                fsm.DownY = pt.Y;
+                fsm.MovedTooFar = false;
+                fsm.DownSuppressed = false;
+                int minTol = DefaultMoveTolerancePx;
+                fsm.MoveToleranceSq = minTol * minTol;
             }
-            fsm.Down = true;
-            fsm.DownMs = Environment.TickCount64;
-            fsm.DownX = pt.X;
-            fsm.DownY = pt.Y;
-            fsm.MovedTooFar = false;
-            fsm.DownSuppressed = false;
-            int minTol = DefaultMoveTolerancePx;
-            fsm.MoveToleranceSq = minTol * minTol;
         }
 
         internal static void NotifyRawFlagUp(ushort upFlag)
@@ -1431,8 +1614,13 @@ namespace lunagalLauncher.Services
             if (ShouldSkipMouseMappingBecauseCursorOnOwnForegroundUi(pt)) return;
 
             ulong key = downFlag;
-            if (!_rawFsm.TryGetValue(key, out var fsm) || !fsm.Down)
-                return;
+            ButtonFsm? fsm;
+            // 锁内只取引用与清 Down，后续匹配/执行在锁外完成，避免 lock 覆盖 SendInput 重入
+            lock (_rawFsmGate)
+            {
+                if (!_rawFsm.TryGetValue(key, out fsm) || !fsm.Down)
+                    return;
+            }
 
             long duration = Environment.TickCount64 - fsm.DownMs;
             fsm.Down = false;
@@ -1531,19 +1719,22 @@ namespace lunagalLauncher.Services
             if (ShouldSkipMouseMappingBecauseCursorOnOwnForegroundUi(pt)) return;
 
             ulong key = (ulong)singleBitMask << 32;
-            if (!_rawFsm.TryGetValue(key, out var fsm))
+            lock (_rawFsmGate)
             {
-                fsm = new ButtonFsm();
-                _rawFsm[key] = fsm;
+                if (!_rawFsm.TryGetValue(key, out var fsm))
+                {
+                    fsm = new ButtonFsm();
+                    _rawFsm[key] = fsm;
+                }
+                fsm.Down = true;
+                fsm.DownMs = Environment.TickCount64;
+                fsm.DownX = pt.X;
+                fsm.DownY = pt.Y;
+                fsm.MovedTooFar = false;
+                fsm.DownSuppressed = false;
+                int minTol = DefaultMoveTolerancePx;
+                fsm.MoveToleranceSq = minTol * minTol;
             }
-            fsm.Down = true;
-            fsm.DownMs = Environment.TickCount64;
-            fsm.DownX = pt.X;
-            fsm.DownY = pt.Y;
-            fsm.MovedTooFar = false;
-            fsm.DownSuppressed = false;
-            int minTol = DefaultMoveTolerancePx;
-            fsm.MoveToleranceSq = minTol * minTol;
         }
 
         internal static void NotifyRawMaskUp(uint fallingMask)
@@ -1563,8 +1754,12 @@ namespace lunagalLauncher.Services
             if (ShouldSkipMouseMappingBecauseCursorOnOwnForegroundUi(pt)) return;
 
             ulong key = (ulong)fallingBit << 32;
-            if (!_rawFsm.TryGetValue(key, out var fsm) || !fsm.Down)
-                return;
+            ButtonFsm? fsm;
+            lock (_rawFsmGate)
+            {
+                if (!_rawFsm.TryGetValue(key, out fsm) || !fsm.Down)
+                    return;
+            }
 
             long duration = Environment.TickCount64 - fsm.DownMs;
             fsm.Down = false;
@@ -1638,7 +1833,11 @@ namespace lunagalLauncher.Services
 
         private static void UpdateClickSequenceRaw(ulong key, int maxIntervalMs)
         {
-            if (!_rawFsm.TryGetValue(key, out var fsm)) return;
+            ButtonFsm? fsm;
+            lock (_rawFsmGate)
+            {
+                if (!_rawFsm.TryGetValue(key, out fsm)) return;
+            }
             long now = Environment.TickCount64;
             if (now - fsm.LastUpMs <= maxIntervalMs)
                 fsm.UpSequence++;
@@ -1672,7 +1871,10 @@ namespace lunagalLauncher.Services
         /// <summary>物理键录入前清空 HID 上一帧状态，与 RawInputMouseBridge 基线一致。</summary>
         internal static void ResetHidBaselinesForRecording()
         {
-            _hidLastSig.Clear();
+            lock (_rawFsmGate)
+            {
+                _hidLastSig.Clear();
+            }
         }
 
         /// <summary>RIM_TYPEHID：报告哈希变化时调用；在「上一帧不是该规则签名 → 当前帧等于规则签名」时触发一次。</summary>
@@ -1683,13 +1885,17 @@ namespace lunagalLauncher.Services
             if (ShouldSkipMouseMappingBecauseCursorOnOwnForegroundUi(pt)) return;
 
             var hidKey = (hDevice, reportId);
-            if (!_hidLastSig.TryGetValue(hidKey, out ulong prev))
+            ulong prev;
+            lock (_rawFsmGate)
             {
+                if (!_hidLastSig.TryGetValue(hidKey, out prev))
+                {
+                    _hidLastSig[hidKey] = sig;
+                    return;
+                }
+                if (prev == sig) return;
                 _hidLastSig[hidKey] = sig;
-                return;
             }
-            if (prev == sig) return;
-            _hidLastSig[hidKey] = sig;
 
             var rules = MatchingHidRules(sig);
             MouseMappingRule? matched = null;

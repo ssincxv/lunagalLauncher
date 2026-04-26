@@ -13,10 +13,12 @@ namespace lunagalLauncher.Services
         private static DispatcherQueueTimer? _debounceTimer;
 
         /// <summary>
-        /// 主页面 Loaded 后调用（注册 UI 线程队列并安装钩子）
+        /// 主窗定时节流与鼠标映射页 Loaded 会调用，注册 UI 线程并装钩；幂等，避免多入口重复 <see cref="ApplyFromCurrentConfig"/>。
         /// </summary>
         public static void InitializeUi(DispatcherQueue dispatcherQueue)
         {
+            if (_dispatcher is not null)
+                return;
             _dispatcher = dispatcherQueue;
             MouseMappingEngine.SetDispatcherQueue(dispatcherQueue);
             ApplyFromCurrentConfig();

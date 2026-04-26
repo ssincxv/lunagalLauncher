@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using lunagalLauncher.Core;
 using lunagalLauncher.Data;
@@ -533,6 +534,30 @@ namespace lunagalLauncher.Views
         }
 
         /// <summary>
+        /// 从路径推断初始目录（与 llama 服务页 <c>BrowseServiceButton_Click</c> 使用的
+        /// <c>TryGetInitialDirectoryFromPath</c> 同逻辑）。
+        /// </summary>
+        private static string? TryGetInitialDirectoryFromPath(string? pathOrFile)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(pathOrFile)) return null;
+                var t = pathOrFile.Trim();
+                if (Directory.Exists(t))
+                    return Path.GetFullPath(t);
+                var d = Path.GetDirectoryName(t);
+                if (!string.IsNullOrEmpty(d) && Directory.Exists(d))
+                    return Path.GetFullPath(d);
+            }
+            catch
+            {
+                // 忽略无效路径
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// 添加应用按钮点击事件
         /// Add application button click event handler
         /// </summary>
@@ -542,25 +567,23 @@ namespace lunagalLauncher.Views
             {
                 Log.Information("用户点击「添加应用」按钮");
 
-                if (!App.TryGetMainWindowHandle(out var hwnd))
-                {
-                    Log.Error("无法获取应用程序窗口实例");
-                    return;
-                }
-
-                var filePath = await Win32FileDialog.ShowOpenFileDialogAsync(
-                    hwnd,
-                    "可执行文件|*.exe;*.bat;*.cmd|所有文件|*.*",
+                var initDir = TryGetInitialDirectoryFromPath(null);
+                var pick = await Win32FileDialog.ShowOpenFileDialogForMainWindowWithResultAsync(
+                    "可执行文件 (*.exe;*.bat;*.cmd)|*.exe;*.bat;*.cmd|所有文件|*.*",
                     "选择应用程序",
-                    null);
+                    initDir);
 
-                if (string.IsNullOrEmpty(filePath))
+                await UiDialogs.ShowAlertForFilePickerResultAsync(
+                    GetDialogXamlRoot(), pick, ContentDialogPlacement.Popup);
+
+                if (string.IsNullOrEmpty(pick.Path))
                 {
-                    Log.Information("用户取消了文件选择");
+                    if (pick.Completion == OpenFilePickerCompletion.Cancelled)
+                        Log.Information("用户取消了文件选择");
                     return;
                 }
 
-                var resolvedPath = NormalizeLaunchAppPathForComparison(filePath);
+                var resolvedPath = NormalizeLaunchAppPathForComparison(pick.Path);
                 if (string.IsNullOrEmpty(resolvedPath))
                 {
                     Log.Warning("无法解析所选路径，已取消添加");
@@ -738,6 +761,17 @@ namespace lunagalLauncher.Views
             return new SolidColorBrush(c);
         }
 
+        /// <summary>叠层隐藏后再跑一帧 UI，减轻与随后系统文件框的合成交替问题。</summary>
+        private static async Task WaitOneDispatcherFrameAsync()
+        {
+            var dq = DispatcherQueue.GetForCurrentThread();
+            if (dq == null) return;
+            var tcs = new TaskCompletionSource();
+            if (!dq.TryEnqueue(DispatcherQueuePriority.Normal, () => tcs.TrySetResult()))
+                tcs.TrySetResult();
+            await tcs.Task;
+        }
+
         /// <summary>
         /// 使用主窗口全屏叠层 + 卡片 Horizontal/Vertical Center，在整窗范围内居中（绕过 ContentDialog 在 NavigationView 下的定位问题）。
         /// </summary>
@@ -810,15 +844,30 @@ namespace lunagalLauncher.Views
 
             browseIconButton.Click += async (_, _) =>
             {
-                if (!App.TryGetMainWindowHandle(out var hwnd)) return;
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(new[] { iconPathTextBox.Text });
-                var filePath = await Win32FileDialog.ShowOpenFileDialogAsync(
-                    hwnd,
-                    "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.ico|所有文件|*.*",
-                    "选择图标文件",
-                    initDir);
-                if (!string.IsNullOrEmpty(filePath))
-                    iconPathTextBox.Text = filePath;
+                var vis = overlay.Visibility;
+                overlay.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                await WaitOneDispatcherFrameAsync();
+                OpenFilePickerResult? pick = null;
+                try
+                {
+                    pick = await Win32FileDialog.ShowOpenFileDialogViaHelperWithResultAsync(
+                        "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.ico|所有文件|*.*",
+                        "选择图标文件",
+                        initDir,
+                        useCommDlg: true);
+                }
+                finally
+                {
+                    overlay.Visibility = vis;
+                }
+
+                if (pick is { } iconPick)
+                    await UiDialogs.ShowAlertForFilePickerResultAsync(
+                        GetDialogXamlRoot(), iconPick, ContentDialogPlacement.Popup);
+
+                if (pick?.Path is { Length: > 0 } ip)
+                    iconPathTextBox.Text = ip;
             };
             clearIconButton.Click += (_, _) => { iconPathTextBox.Text = string.Empty; };
 
@@ -856,15 +905,30 @@ namespace lunagalLauncher.Views
 
             browsePathButton.Click += async (_, _) =>
             {
-                if (!App.TryGetMainWindowHandle(out var hwnd)) return;
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(new[] { pathTextBox.Text });
-                var filePath = await Win32FileDialog.ShowOpenFileDialogAsync(
-                    hwnd,
-                    "可执行文件|*.exe;*.bat;*.cmd|所有文件|*.*",
-                    "选择应用程序",
-                    initDir);
-                if (!string.IsNullOrEmpty(filePath))
-                    pathTextBox.Text = filePath;
+                var vis = overlay.Visibility;
+                overlay.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+                await WaitOneDispatcherFrameAsync();
+                OpenFilePickerResult? pick = null;
+                try
+                {
+                    pick = await Win32FileDialog.ShowOpenFileDialogViaHelperWithResultAsync(
+                        "可执行文件|*.exe;*.bat;*.cmd|所有文件|*.*",
+                        "选择应用程序",
+                        initDir,
+                        useCommDlg: true);
+                }
+                finally
+                {
+                    overlay.Visibility = vis;
+                }
+
+                if (pick is { } pathPick)
+                    await UiDialogs.ShowAlertForFilePickerResultAsync(
+                        GetDialogXamlRoot(), pathPick, ContentDialogPlacement.Popup);
+
+                if (pick?.Path is { Length: > 0 } pp)
+                    pathTextBox.Text = pp;
             };
 
             var launchMinimizedSwitch = new ToggleSwitch

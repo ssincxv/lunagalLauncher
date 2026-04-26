@@ -1,6 +1,8 @@
 using lunagalLauncher.Core;
 using lunagalLauncher.Data;
 using lunagalLauncher.Infrastructure;
+using lunagalLauncher.Services;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
@@ -27,6 +29,9 @@ namespace lunagalLauncher
 
         /// <summary>覆盖整窗的模态层，用于在窗口内可靠居中（替代 ContentDialog 定位问题）。</summary>
         public Grid? WindowModalOverlay { get; private set; }
+
+        /// <summary>首帧后延迟安装文件对话框用 WH_MOUSE_LL 与 Shell 缓存，减轻与首屏输入/合成同段争用。</summary>
+        private DispatcherQueueTimer? _fileDialogSidecarWarmTimer;
 
         /// <summary>
         /// 配置持久化管理器
@@ -73,6 +78,15 @@ namespace lunagalLauncher
                 // Initialize XAML components
                 this.InitializeComponent();
 
+                // 进程早期启动 LL 钩子消息泵线程：WH_MOUSE_LL / WH_KEYBOARD_LL / RightClickSwallower
+                // 三条低层钩子后续都装在它上面，与 UI 线程解耦，UI 任意繁忙（首帧 Composition / 页切换 / 文件对话框）
+                // 都不再映射成鼠标指针 50–100 ms 卡顿。阻塞启动只 <2 ms。
+                // Start the dedicated LL-hook message pump thread early so every low-level
+                // hook (mouse/keyboard/right-click-swallower) installs on it instead of the UI
+                // thread; any UI thread stall no longer stutters the mouse cursor. Blocks <2 ms.
+                Log.Information("启动 LL 钩子专用消息泵线程...");
+                HookThread.EnsureStarted();
+
                 // 初始化配置管理器
                 // Initialize configuration manager
                 Log.Information("正在初始化配置管理器...");
@@ -99,13 +113,18 @@ namespace lunagalLauncher
                 };
                 AppDomain.CurrentDomain.FirstChanceException += (s, ev) =>
                 {
-                    // 只记本进程代码里的异常（剔除 WinUI/COM 大量低层抖动），作为崩溃前最后线索。
+                    // 只记本进程代码里的异常（剔除 WinUI/COM 大量低层抖动），作为静默闪退/Shell 右键前最后线索。
                     try
                     {
                         var ex = ev.Exception;
                         if (ex == null) return;
                         string? st = ex.StackTrace;
-                        if (st != null && st.Contains("lunagalLauncher", StringComparison.Ordinal))
+                        if (st == null || !st.Contains("lunagalLauncher", StringComparison.Ordinal))
+                            return;
+                        if (st.Contains("Win32FileDialog", StringComparison.Ordinal)
+                            || st.Contains("FileDialogStaWorker", StringComparison.Ordinal))
+                            Serilog.Log.Warning(ex, "FirstChanceException（文件对话框 STA 路径）");
+                        else
                             Serilog.Log.Debug(ex, "FirstChanceException（仅本项目帧）");
                     }
                     catch { }
@@ -173,20 +192,51 @@ namespace lunagalLauncher
                     Log.Information("导航框架与全窗模态叠层已创建");
                 }
 
+                // 默认 Mica 与 comdlg/Shell 打开文件对话框叠加时易合成异常（白块/错位）。关闭系统背板（当前 SDK 投影无 SolidColorBackdrop 类型名）。
+                try
+                {
+                    window.SystemBackdrop = null;
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "清除主窗 SystemBackdrop 失败");
+                }
+
                 if (RootFrame != null && RootFrame.Content == null)
                 {
                     Log.Information("正在导航到主页面...");
                     _ = RootFrame.Navigate(typeof(MainPage), e.Arguments);
                 }
 
+                // 在 Activate 之前启动文件对话框预热，缩短与首次点「浏览」的竞态（详见 Win32FileDialog.Prewarm）
+                Utils.Win32FileDialog.Prewarm();
+
                 // 激活窗口
                 // Activate window
                 window.Activate();
                 Log.Information("主窗口已激活");
 
-                // 后台预热文件对话框 COM 调用路径，让用户首次点"浏览"时不再感到卡顿
-                // （详见 Win32FileDialog.Prewarm 注释）
-                Utils.Win32FileDialog.Prewarm();
+                // 首帧后 ~1200ms 再装：RightClickSwallower 的 WH_MOUSE_LL 现走 HookThread 不占 UI；
+                // 延后 1200ms 触发 Shell DLL 预热（LoadLibraryW 列表），确保首帧渲染完毕后再跑。
+                // WinRT Picker 不再需要 UI 线程 SHCreateItemFromParsingName，故侧车可完全在后台完成。
+                _fileDialogSidecarWarmTimer?.Stop();
+                _fileDialogSidecarWarmTimer = window.DispatcherQueue.CreateTimer();
+                _fileDialogSidecarWarmTimer.Interval = TimeSpan.FromMilliseconds(1200);
+                _fileDialogSidecarWarmTimer.IsRepeating = false;
+                _fileDialogSidecarWarmTimer.Tick += (_, _) =>
+                {
+                    _fileDialogSidecarWarmTimer = null;
+                    try
+                    {
+                        // 触发后台 Shell DLL 预热；WinRT Picker 底层仍会拉这些 DLL，提前载入减少首次弹出延迟。
+                        _ = Utils.Win32FileDialog.EnsureFileDialogPrewarmedAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug(ex, "延后文件对话框侧车预热失败（可忽略）");
+                    }
+                };
+                _fileDialogSidecarWarmTimer.Start();
             }
             catch (Exception ex)
             {
@@ -367,6 +417,20 @@ namespace lunagalLauncher
 
                 Log.Information("保存窗口设置...");
                 SaveWindowSettings();
+
+                // 让 LL 钩子消息泵线程退出循环（幂等）。不强行 Join——线程 IsBackground=true，
+                // 进程即将退出时操作系统会回收；避免在 UI Closed 里阻塞等待。
+                // Stop the dedicated LL-hook message pump (idempotent). Don't block-Join:
+                // the thread is a background thread and the OS will reclaim it as the
+                // process exits, so we avoid stalling the UI Closed handler.
+                try
+                {
+                    HookThread.Stop();
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "HookThread.Stop 失败（忽略）");
+                }
             }
             catch (Exception ex)
             {

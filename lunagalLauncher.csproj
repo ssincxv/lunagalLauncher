@@ -34,13 +34,7 @@
         -->
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
 
-        <!--
-          禁用 XAML 编译器自动生成的 Program.Main，改用我们自己写的（见 Program.cs）。
-          主进程直接启动 WinUI 3 App，不再走 helper 子进程模式；历史版本曾为规避 shell
-          扩展 AV 引入过 pick-file / pick-save / prewarm 类子进程，但 .NET CLR 冷启动 200-500ms
-          延迟体验不佳，已改为主进程直接调 IFileOpenDialog + 进程级 LL 鼠标钩子吞右键，
-          见 Utils/Win32FileDialog.cs。
-        -->
+        <!-- 禁用 XAML 生成的 Main，入口见 Program.cs。 -->
         <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     </PropertyGroup>
 

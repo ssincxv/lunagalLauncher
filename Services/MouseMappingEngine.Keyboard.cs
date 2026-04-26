@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Threading;
 using lunagalLauncher.Data;
 using Serilog;
 
@@ -21,35 +22,92 @@ namespace lunagalLauncher.Services
     /// </summary>
     internal static partial class MouseMappingEngine
     {
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetKeyboardState(byte[] lpKeyState);
+
+        private static readonly byte[] _kbdStateScratch = new byte[256];
+
+        /// <summary>一次拉取 256 键状态，避免 256 次 GetAsyncKeyState（浏览关闭对话框后恢复路径热）。</summary>
+        private static void FillPhysicalKbdFromKeyboardState()
+        {
+            if (!GetKeyboardState(_kbdStateScratch)) return;
+            for (int i = 0; i < 256; i++)
+                Volatile.Write(ref _physicalKbdDown[i], (_kbdStateScratch[i] & 0x80) != 0 ? 1 : 0);
+        }
+
+        /// <summary>
+        /// 安装 WH_KEYBOARD_LL。<strong>必须在钩子线程内调用</strong>——LL 钩子回调只会发给
+        /// "调用 SetWindowsHookEx 的那个线程"的消息队列；本项目所有 LL 钩子统一走 HookThread，
+        /// 并采用 <see cref="HookThread.Post"/> fire-and-forget，不阻塞 UI 线程。
+        /// </summary>
         private static void InstallKeyboardHook()
+        {
+            HookThread.EnsureStarted();
+            HookThread.Post(() =>
+            {
+                if (_kbdHook != IntPtr.Zero) return;
+                _kbdProc = KeyboardHookCallback;
+                _kbdHook = MouseInputNative.SetWindowsHookExKeyboard(MouseInputNative.WH_KEYBOARD_LL, _kbdProc,
+                    IntPtr.Zero, 0);
+                if (_kbdHook == IntPtr.Zero)
+                    Log.Error("SetWindowsHookEx(WH_KEYBOARD_LL) 失败 err={Err}", Marshal.GetLastWin32Error());
+                else
+                {
+                    FillPhysicalKbdFromKeyboardState();
+                    Log.Information("鼠标映射：键盘低层钩子已安装（HookThread，含物理键状态追踪）");
+                }
+            });
+        }
+
+        private static void UninstallKeyboardHook()
+        {
+            // _kbdFsm 只由 HookThread 写，清空在锁外同样安全；但为保守起见仍在 HookThread 内做。
+            // _physicalKbdDown 用 Volatile 写，跨线程安全。
+            for (int i = 0; i < 256; i++)
+                System.Threading.Volatile.Write(ref _physicalKbdDown[i], 0);
+
+            if (_kbdHook == IntPtr.Zero) return;
+
+            HookThread.Post(() =>
+            {
+                UnhookKeyboardLowLevelOnHookThread();
+            });
+        }
+
+        /// <summary>仅在 HookThread 调用：卸下键盘 LL 钩。</summary>
+        private static void UnhookKeyboardLowLevelOnHookThread()
+        {
+            if (_kbdHook == IntPtr.Zero) return;
+            _kbdFsm.Clear();
+            MouseInputNative.UnhookWindowsHookEx(_kbdHook);
+            _kbdHook = IntPtr.Zero;
+            _kbdProc = null;
+            Log.Information("鼠标映射：键盘低层钩子已卸载（HookThread）");
+        }
+
+        /// <summary>仅在 HookThread 调用：在曾卸下后恢复键盘 LL 钩（与 <see cref="InstallKeyboardHook"/> 中 Post 体一致）。</summary>
+        private static void InstallKeyboardLowLevelOnHookThreadAfterRemoval()
         {
             if (_kbdHook != IntPtr.Zero) return;
             _kbdProc = KeyboardHookCallback;
             _kbdHook = MouseInputNative.SetWindowsHookExKeyboard(MouseInputNative.WH_KEYBOARD_LL, _kbdProc,
                 IntPtr.Zero, 0);
             if (_kbdHook == IntPtr.Zero)
-                Log.Error("SetWindowsHookEx(WH_KEYBOARD_LL) 失败");
-            else
             {
-                for (int i = 0; i < 256; i++)
-                {
-                    System.Threading.Volatile.Write(ref _physicalKbdDown[i],
-                        (MouseInputNative.GetAsyncKeyState(i) & 0x8000) != 0 ? 1 : 0);
-                }
-                Log.Information("鼠标映射：键盘低层钩子已安装（含物理键状态追踪）");
+                Log.Error("SetWindowsHookEx(WH_KEYBOARD_LL) 失败 err={Err}", Marshal.GetLastWin32Error());
+                return;
             }
+
+            FillPhysicalKbdFromKeyboardState();
+            Log.Information("鼠标映射：键盘低层钩子已安装（HookThread，文件对话框结束后恢复）");
         }
 
-        private static void UninstallKeyboardHook()
+        /// <summary>与 <see cref="InstallKeyboardHook"/> 内初始化一致，供钩子重装后刷新物理键状态。</summary>
+        private static void RefreshKeyboardPhysicalStateIfHookInstalled()
         {
-            _kbdFsm.Clear();
-            for (int i = 0; i < 256; i++)
-                System.Threading.Volatile.Write(ref _physicalKbdDown[i], 0);
             if (_kbdHook == IntPtr.Zero) return;
-            MouseInputNative.UnhookWindowsHookEx(_kbdHook);
-            _kbdHook = IntPtr.Zero;
-            _kbdProc = null;
-            Log.Information("鼠标映射：键盘低层钩子已卸载");
+            FillPhysicalKbdFromKeyboardState();
         }
 
         /// <summary>前台窗口是否属于本进程（本应用内录入快捷键时不拦截）。</summary>
@@ -63,7 +121,13 @@ namespace lunagalLauncher.Services
 
         private static IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode < 0 || _config == null || !_config.GlobalEnabled)
+            if (nCode < 0)
+                return MouseInputNative.CallNextHookEx(_kbdHook, nCode, wParam, lParam);
+            if (System.Threading.Volatile.Read(ref _suspendCount) > 0)
+                return MouseInputNative.CallNextHookEx(_kbdHook, nCode, wParam, lParam);
+            // 局部快照，避免 config 被并发清 null 时出现 TOCTOU NRE。
+            var config = _config;
+            if (config == null || !config.GlobalEnabled)
                 return MouseInputNative.CallNextHookEx(_kbdHook, nCode, wParam, lParam);
 
             var info = Marshal.PtrToStructure<MouseInputNative.KBDLLHOOKSTRUCT>(lParam);

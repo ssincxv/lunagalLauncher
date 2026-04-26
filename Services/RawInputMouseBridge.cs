@@ -60,6 +60,9 @@ namespace lunagalLauncher.Services
         {
             if (msg == WM_INPUT && _subclassInstalled)
             {
+                // 文件对话框模态期间 SuspendHooks 已激活：跳过 GetRawInputData + AllocHGlobal 等高频路径，减轻与 Shell 争用。
+                if (MouseMappingEngine.IsFileDialogSuspendActive())
+                    return DefSubclassProc(hWnd, msg, wParam, lParam);
                 try
                 {
                     ProcessWmInput(lParam);

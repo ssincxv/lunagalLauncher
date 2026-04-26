@@ -104,26 +104,9 @@
                 <StackPanel x:Name="GlobalProcessFilterDetailsPanel" Spacing="12" Visibility="Collapsed">
                     <StackPanel Spacing="10">
                         <TextBlock Text="过滤模式" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
+                        <!-- 重型 Content 在 PreparingFirstOpen 中代码后置（MouseMappingPage.xaml.cs） -->
                         <controls:CustomDropdown x:Name="GlobalContextModeDropdown" PlaceholderText="选择模式" MaxDropDownHeight="200"
-                                                 IsReadOnly="True" HorizontalAlignment="Stretch">
-                            <controls:CustomDropdown.Content>
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="180" Padding="16,12,16,12">
-                                    <ItemsRepeater x:Name="GlobalContextModeDropdownItems">
-                                        <ItemsRepeater.Layout><StackLayout Orientation="Vertical"/></ItemsRepeater.Layout>
-                                        <ItemsRepeater.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="12,8"
-                                                        Tapped="GlobalContextModeDropdownItem_Tapped"
-                                                        PointerEntered="GlobalDropdownItemBorder_PointerEntered"
-                                                        PointerExited="GlobalDropdownItemBorder_PointerExited">
-                                                    <TextBlock Text="{Binding}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsRepeater.ItemTemplate>
-                                    </ItemsRepeater>
-                                </ScrollViewer>
-                            </controls:CustomDropdown.Content>
-                        </controls:CustomDropdown>
+                                                 IsReadOnly="True" HorizontalAlignment="Stretch"/>
                     </StackPanel>
                     <StackPanel Spacing="10">
                         <TextBlock Text="过滤名单" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
@@ -134,72 +117,7 @@
                             </Grid.ColumnDefinitions>
                             <controls:CustomDropdown x:Name="GlobalProcessDropdown"
                                                      PlaceholderText="在下拉中勾选或浏览添加；路径仅显示在过滤名单内"
-                                                     IsReadOnly="True" MaxDropDownHeight="420" HorizontalAlignment="Stretch">
-                                <controls:CustomDropdown.Content>
-                                    <StackPanel MaxHeight="420">
-                                        <ScrollViewer x:Name="GlobalProcessListScrollViewer"
-                                                      VerticalAlignment="Top"
-                                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                                      MaxHeight="320" Padding="24,12,24,8">
-                                            <!-- 使用 ItemsControl+StackPanel，避免 ItemsRepeater 虚拟化在批量勾选后错误测量导致顶部大块空白 -->
-                                            <ItemsControl x:Name="GlobalProcessItemsControl"
-                                                          VerticalAlignment="Top"
-                                                          HorizontalAlignment="Stretch"
-                                                          HorizontalContentAlignment="Stretch">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <StackPanel Orientation="Vertical"/>
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="8,6"
-                                                                Tapped="GlobalProcessItemBorder_Tapped"
-                                                                PointerEntered="GlobalProcessItemBorder_PointerEntered"
-                                                                PointerExited="GlobalProcessItemBorder_PointerExited">
-                                                            <Grid ColumnSpacing="5">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="Auto"/>
-                                                                    <ColumnDefinition Width="Auto"/>
-                                                                    <ColumnDefinition Width="*"/>
-                                                                </Grid.ColumnDefinitions>
-                                                                <CheckBox Grid.Column="0" VerticalAlignment="Center"
-                                                                          MinWidth="0" Padding="0" Margin="0,0,8,0"
-                                                                          IsHitTestVisible="False" Tag="{Binding}"/>
-                                                                <Image Grid.Column="1" Width="20" Height="20" VerticalAlignment="Center" Stretch="Uniform"
-                                                                       Source="{Binding Converter={StaticResource ExePathToIconImageSourceConverter}}"/>
-                                                                <TextBlock Grid.Column="2" Text="{Binding}" VerticalAlignment="Center"
-                                                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineHeight="20"/>
-                                                            </Grid>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
-                                        <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="16,6,16,6"/>
-                                        <StackPanel Orientation="Horizontal" Spacing="9" HorizontalAlignment="Center" Margin="24,0,24,12">
-                                            <Button Click="GlobalProcessSelectAll_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
-                                                <StackPanel Orientation="Horizontal" Spacing="3">
-                                                    <TextBlock Text="✓" FontSize="11.5"/>
-                                                    <TextBlock Text="全选"/>
-                                                </StackPanel>
-                                            </Button>
-                                            <Button Click="GlobalProcessClearChecks_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
-                                                <StackPanel Orientation="Horizontal" Spacing="3">
-                                                    <TextBlock Text="✗" FontSize="11.5"/>
-                                                    <TextBlock Text="清空"/>
-                                                </StackPanel>
-                                            </Button>
-                                            <Button Click="GlobalProcessDeleteSelected_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
-                                                <StackPanel Orientation="Horizontal" Spacing="3">
-                                                    <TextBlock Text="🗑" FontSize="11.5"/>
-                                                    <TextBlock Text="删除"/>
-                                                </StackPanel>
-                                            </Button>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </controls:CustomDropdown.Content>
-                            </controls:CustomDropdown>
+                                                     IsReadOnly="True" MaxDropDownHeight="420" HorizontalAlignment="Stretch"/>
                             <Button Grid.Column="1" MinHeight="32" Padding="10,0,12,0" CornerRadius="4" VerticalAlignment="Stretch"
                                     Click="GlobalBrowseExe_Click" ToolTipService.ToolTip="浏览并添加可执行文件">
                                 <StackPanel Orientation="Horizontal" Spacing="8">

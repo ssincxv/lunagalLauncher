@@ -63,6 +63,14 @@ namespace lunagalLauncher.Controls
         // 静态字段：跟踪当前打开的下拉框
         private static CustomDropdown? _currentOpenDropdown = null;
 
+        private bool _preparingFirstOpenRaised;
+
+        /// <summary>
+        /// 在实例首次将 <see cref="IsOpen"/> 设为 true、Popup 打开之前触发一次。
+        /// 用于在 XAML 不写重型 <see cref="Content"/>，仅在此时 <c>Content = BuildHeavyStuff()</c>。
+        /// </summary>
+        public event EventHandler? PreparingFirstOpen;
+
         #region 依赖属性
 
         /// <summary>
@@ -786,6 +794,12 @@ namespace lunagalLauncher.Controls
 
                 if (isOpen)
                 {
+                    if (!_preparingFirstOpenRaised)
+                    {
+                        _preparingFirstOpenRaised = true;
+                        PreparingFirstOpen?.Invoke(this, EventArgs.Empty);
+                    }
+
                     // 关闭之前打开的下拉框
                     if (_currentOpenDropdown != null && _currentOpenDropdown != this)
                     {

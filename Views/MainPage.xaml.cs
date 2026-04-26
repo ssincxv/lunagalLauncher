@@ -42,6 +42,12 @@ namespace lunagalLauncher.Views
         /// </summary>
         private readonly object _pageCacheLock = new object();
 
+        /// <summary>主窗 500ms 后补 <see cref="MouseMappingRuntime.InitializeUi"/>（从未打开鼠标页时全局映射仍要；与页内 Loaded 二选一，幂等）。</summary>
+        private DispatcherQueueTimer? _mouseMappingInitFallbackTimer;
+
+        /// <summary>将 MouseMapping / Llama / 导航动画预挂从首段 Low 错开，减轻与窗口激活同段争用。</summary>
+        private DispatcherQueueTimer? _heavyPagePrewarmTimer;
+
         /// <summary>
         /// 构造函数
         /// Constructor - initializes the main page
@@ -190,9 +196,42 @@ namespace lunagalLauncher.Views
         /// </summary>
         private void MainPage_Loaded(object sender, RoutedEventArgs e)
         {
-            Log.Debug("MainPage_Loaded：开始排队分帧预建链（导航动画与 InitializeUi 在链尾 Low 执行）");
+            Log.Debug("MainPage_Loaded：开始分帧预建 + 定时节流（InitializeUi 见 500ms fallback / 鼠标页 Loaded）");
+            StartMouseMappingInitFallbackTimer();
             ScheduleDeferredPagePreloads();
             ScheduleApplyFooterVisualLift();
+        }
+
+        /// <summary>约 0.5s 后若 <see cref="MouseMappingRuntime.InitializeUi"/> 尚未因进入鼠标页而执行，则在此补装引擎。</summary>
+        private void StartMouseMappingInitFallbackTimer()
+        {
+            if (DispatcherQueue == null)
+                return;
+            _mouseMappingInitFallbackTimer?.Stop();
+            _mouseMappingInitFallbackTimer = DispatcherQueue.CreateTimer();
+            _mouseMappingInitFallbackTimer.Interval = TimeSpan.FromMilliseconds(500);
+            _mouseMappingInitFallbackTimer.IsRepeating = false;
+            _mouseMappingInitFallbackTimer.Tick += OnMouseMappingInitFallbackTimerTick;
+            _mouseMappingInitFallbackTimer.Start();
+        }
+
+        private void OnMouseMappingInitFallbackTimerTick(DispatcherQueueTimer sender, object args)
+        {
+            _mouseMappingInitFallbackTimer = null;
+            try
+            {
+                if (DispatcherQueue is { } dq)
+                {
+                    var sw = Stopwatch.StartNew();
+                    MouseMappingRuntime.InitializeUi(dq);
+                    sw.Stop();
+                    Log.Information("MainPage：MouseMappingRuntime.InitializeUi（500ms 定时节流）{Ms}ms", sw.ElapsedMilliseconds);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "MainPage：MouseMapping 定时节流初始化失败");
+            }
         }
 
         /// <summary>
@@ -220,46 +259,52 @@ namespace lunagalLauncher.Views
         }
 
         /// <summary>
-        /// 首帧后链式预建 LogViewer → MouseMapping → LlamaService，再在独立 Low 项中挂导航动画与鼠标引擎（避免与首帧指针/布局同段执行）。
+        /// 先 <see cref="EnqueueMainPageLow"/> 只建 <see cref="LogViewerPage"/>；约 320ms 后再用 Low 链预挂重页 + 导航动画。<see cref="MouseMappingRuntime.InitializeUi"/> 已移至定时节流与 <see cref="MouseMappingPage"/> Loaded。
         /// </summary>
         private void ScheduleDeferredPagePreloads()
         {
             EnqueueMainPageLow(() =>
             {
                 TryAddPageToCache(typeof(LogViewerPage), () => new LogViewerPage());
+            });
+
+            if (DispatcherQueue == null)
+                return;
+
+            _heavyPagePrewarmTimer?.Stop();
+            _heavyPagePrewarmTimer = DispatcherQueue.CreateTimer();
+            _heavyPagePrewarmTimer.Interval = TimeSpan.FromMilliseconds(320);
+            _heavyPagePrewarmTimer.IsRepeating = false;
+            _heavyPagePrewarmTimer.Tick += (_, _) =>
+            {
+                _heavyPagePrewarmTimer = null;
+                try
+                {
+                    EnqueueHeavyPagePrewarmChain();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "重页预挂载定时器失败: {Message}", ex.Message);
+                }
+            };
+            _heavyPagePrewarmTimer.Start();
+        }
+
+        private void EnqueueHeavyPagePrewarmChain()
+        {
+            EnqueueMainPageLow(() =>
+            {
+                TryAddPageToCache(typeof(MouseMappingPage), () => new MouseMappingPage());
                 EnqueueMainPageLow(() =>
                 {
-                    TryAddPageToCache(typeof(MouseMappingPage), () => new MouseMappingPage());
+                    TryAddPageToCache(typeof(LlamaServicePage), () => new LlamaServicePage());
+                    Log.Information("MainPage：重页 + 导航动画分帧预挂链已调度（若已存在则跳过）");
                     EnqueueMainPageLow(() =>
                     {
-                        TryAddPageToCache(typeof(LlamaServicePage), () => new LlamaServicePage());
-                        Log.Information("MainPage：三页 Low 分帧预挂载链已调度完毕（若已存在则跳过）");
-
-                        EnqueueMainPageLow(() =>
-                        {
-                            var sw = Stopwatch.StartNew();
-                            AttachNavigationItemAnimations();
-                            sw.Stop();
-                            Log.Information("MainPage：AttachNavigationItemAnimations 完成，耗时 {Ms}ms", sw.ElapsedMilliseconds);
-
-                            EnqueueMainPageLow(() =>
-                            {
-                                sw = Stopwatch.StartNew();
-                                try
-                                {
-                                    MouseMappingRuntime.InitializeUi(DispatcherQueue);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log.Warning(ex, "鼠标映射运行时初始化失败");
-                                }
-                                finally
-                                {
-                                    sw.Stop();
-                                    Log.Information("MainPage：MouseMappingRuntime.InitializeUi 完成，耗时 {Ms}ms", sw.ElapsedMilliseconds);
-                                }
-                            });
-                        });
+                        var sw = Stopwatch.StartNew();
+                        AttachNavigationItemAnimations();
+                        sw.Stop();
+                        Log.Information("MainPage：AttachNavigationItemAnimations 完成，耗时 {Ms}ms", sw.ElapsedMilliseconds);
                     });
                 });
             });
@@ -603,14 +648,11 @@ namespace lunagalLauncher.Views
 
         private async Task<string?> PickOpenFullBackupPathAsync()
         {
-            if (!App.TryGetMainWindowHandle(out var hwnd))
-            {
-                Log.Error("无法获取应用程序窗口实例");
-                return null;
-            }
+            if (!App.TryGetMainWindowHandle(out _))
+                Log.Warning("无法获取主窗口句柄，仍将使用 file-picker 子进程打开备份文件");
 
             const string filter = "JSON (*.json)|*.json";
-            return await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, filter, "选择完整设置备份");
+            return await Win32FileDialog.ShowOpenFileDialogForMainWindowAsync(filter, "选择完整设置备份");
         }
 
         private Task ShowBackupMessageAsync(string title, string message) =>

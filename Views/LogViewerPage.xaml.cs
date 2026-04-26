@@ -219,6 +219,20 @@ namespace lunagalLauncher.Views
         }
 
         /// <summary>
+        /// FileSystemWatcher 在后台线程触发；await 之后 continuation 未必回到 UI 线程。
+        /// 此时 <see cref="FrameworkElement.DispatcherQueue"/> 可能仍为 null（预挂载未入树），
+        /// 直接 <c>DispatcherQueue.TryEnqueue</c> 会 NRE，且 lambda 内异常无法被 ReadNewLogLinesAsync 外层 try 捕获，导致列表不再刷新。
+        /// </summary>
+        private Microsoft.UI.Dispatching.DispatcherQueue? ResolveUiDispatcherQueue()
+        {
+            if (DispatcherQueue != null)
+                return DispatcherQueue;
+            if (Microsoft.UI.Xaml.Application.Current is lunagalLauncher.App app && app.window != null)
+                return app.window.DispatcherQueue;
+            return null;
+        }
+
+        /// <summary>
         /// 读取新增的日志行
         /// Reads new log lines
         /// </summary>
@@ -251,29 +265,34 @@ namespace lunagalLauncher.Views
                     }
                 }
 
-                // 更新文件位置
-                // Update file position
-                _lastFilePosition = fileStream.Position;
+                // StreamReader 会缓冲：必须用 BaseStream.Position，否则漏读/重复读且可能破坏后续 tail
+                _lastFilePosition = reader.BaseStream.Position;
 
-                // 在UI线程上添加新日志
-                // Add new logs on UI thread
-                if (newLines.Count > 0)
+                if (newLines.Count == 0)
+                    return;
+
+                var dq = ResolveUiDispatcherQueue();
+                if (dq == null)
                 {
-                    DispatcherQueue.TryEnqueue(() =>
+                    Log.Debug("日志查看器：无法解析队列，跳过 UI 追加（{Count} 行）", newLines.Count);
+                    return;
+                }
+
+                // 捕获列表副本，避免闭包与后续修改问题
+                var linesCopy = newLines.ToArray();
+                dq.TryEnqueue(() =>
+                {
+                    try
                     {
-                        // 批量添加日志项（性能优化）
-                        // Batch add log items (performance optimization)
                         var itemsToAdd = new List<LogItemViewModel>();
 
-                        foreach (var line in newLines)
+                        foreach (var line in linesCopy)
                         {
                             var logItem = ParseLogLine(line);
                             if (logItem != null)
                             {
                                 _allLogItems.Add(logItem);
 
-                                // 检查是否符合当前筛选条件
-                                // Check if matches current filter
                                 if (ShouldIncludeLogItem(logItem))
                                 {
                                     itemsToAdd.Add(logItem);
@@ -281,33 +300,29 @@ namespace lunagalLauncher.Views
                             }
                         }
 
-                        // 批量添加到 UI 集合
-                        // Batch add to UI collection
                         foreach (var item in itemsToAdd)
                         {
                             LogItems.Add(item);
                         }
 
-                        // 限制日志数量，防止内存溢出
-                        // Limit log count to prevent memory overflow
                         TrimLogItems();
-
-                        // 更新统计信息
-                        // Update statistics
                         UpdateStatistics();
 
-                        // 自动滚动到底部
-                        // Auto scroll to bottom
-                        if (AutoScrollToggle.IsOn)
+                        if (AutoScrollToggle?.IsOn == true)
                         {
                             ScrollToBottom();
                         }
 
-                        // 隐藏空状态
-                        // Hide empty state
-                        EmptyStatePanel.Visibility = LogItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-                    });
-                }
+                        if (EmptyStatePanel != null)
+                        {
+                            EmptyStatePanel.Visibility = LogItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+                        }
+                    }
+                    catch (Exception uiEx)
+                    {
+                        Log.Debug(uiEx, "日志查看器 UI 追加失败: {Message}", uiEx.Message);
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -361,6 +376,9 @@ namespace lunagalLauncher.Views
         /// </summary>
         private bool ShouldIncludeLogItem(LogItemViewModel item)
         {
+            if (LogLevelFilterComboBox == null)
+                return true;
+
             var selectedIndex = LogLevelFilterComboBox.SelectedIndex;
 
             return selectedIndex switch
@@ -507,6 +525,9 @@ namespace lunagalLauncher.Views
         {
             try
             {
+                if (LogLevelFilterComboBox == null)
+                    return;
+
                 LogItems.Clear();
 
                 var selectedIndex = LogLevelFilterComboBox.SelectedIndex;
@@ -546,6 +567,9 @@ namespace lunagalLauncher.Views
         {
             try
             {
+                if (LogCountText == null || ErrorCountText == null || WarningCountText == null)
+                    return;
+
                 var totalCount = _allLogItems.Count;
                 var errorCount = _allLogItems.Count(item => item.Level == "错误" || item.Level == "致命");
                 var warningCount = _allLogItems.Count(item => item.Level == "警告");
@@ -664,7 +688,7 @@ namespace lunagalLauncher.Views
         /// </summary>
         private void ScrollToBottom()
         {
-            if (LogItems.Count == 0) return;
+            if (LogItems.Count == 0 || LogListView == null) return;
 
             // 延迟到布局完成后（Low 优先级 < Normal 优先级的 LogItems.Add）
             // Deferred so the just-Add-ed item has been measured & arranged

@@ -16,20 +16,26 @@ namespace lunagalLauncher.Views
     {
         private void UpdateProcessDropdownDisplayText()
         {
-            var selected = new List<string>();
-            foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
+            if (ProcessItemsControl != null)
             {
-                if (cb.IsChecked == true && cb.Tag is string path)
-                    selected.Add(path);
+                var selected = new List<string>();
+                foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
+                {
+                    if (cb.IsChecked == true && cb.Tag is string path)
+                        selected.Add(path);
+                }
+                if (selected.Count == 0)
+                    ProcessDropdown.Text = string.Empty;
+                else
+                    ProcessDropdown.Text = $"已选 {selected.Count} 项";
             }
-            // 输入框不展示完整路径，仅在下拉中展示；摘要文案让用户知悉已选条目数
-            if (selected.Count == 0)
-                ProcessDropdown.Text = string.Empty;
+            else if (_processItems.Count > 0)
+                ProcessDropdown.Text = $"已选 {_processItems.Count} 项";
             else
-                ProcessDropdown.Text = $"已选 {selected.Count} 项";
+                ProcessDropdown.Text = string.Empty;
         }
 
-        private void ProcessItemBorder_Tapped(object sender, TappedRoutedEventArgs e)
+        internal void ProcessItemBorder_Tapped(object sender, TappedRoutedEventArgs e)
         {
             try
             {
@@ -46,28 +52,30 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private void ProcessItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
+        internal void ProcessItemBorder_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(255, 229, 229, 229));
         }
 
-        private void ProcessItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
+        internal void ProcessItemBorder_PointerExited(object sender, PointerRoutedEventArgs e)
         {
             if (sender is Border b)
                 b.Background = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
         }
 
-        private void ProcessSelectAll_Click(object sender, RoutedEventArgs e)
+        internal void ProcessSelectAll_Click(object sender, RoutedEventArgs e)
         {
+            if (ProcessItemsControl == null) return;
             foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
                 cb.IsChecked = true;
             UpdateProcessDropdownDisplayText();
             ScrollProcessFilterListToTop();
         }
 
-        private void ProcessClearChecks_Click(object sender, RoutedEventArgs e)
+        internal void ProcessClearChecks_Click(object sender, RoutedEventArgs e)
         {
+            if (ProcessItemsControl == null) return;
             foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
                 cb.IsChecked = false;
             UpdateProcessDropdownDisplayText();
@@ -88,9 +96,10 @@ namespace lunagalLauncher.Views
             }
         }
 
-        private async void ProcessDeleteSelected_Click(object sender, RoutedEventArgs e)
+        internal async void ProcessDeleteSelected_Click(object sender, RoutedEventArgs e)
         {
             var remove = new List<string>();
+            if (ProcessItemsControl == null) return;
             foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
             {
                 if (cb.IsChecked == true && cb.Tag is string path)
@@ -116,14 +125,12 @@ namespace lunagalLauncher.Views
             {
                 await CustomDropdownModalPrep.CloseIfOpenAndWaitForAnimationAsync(ProcessDropdown);
 
-                if (!App.TryGetMainWindowHandle(out var hwnd))
-                {
-                    Log.Warning("浏览 exe：主窗口为空");
-                    return;
-                }
+                if (!App.TryGetMainWindowHandle(out _))
+                    Log.Warning("浏览 exe：主窗口为空，仍将使用 file-picker 子进程");
 
                 var initDir = Win32FileDialog.TryGetInitialDirectoryFromExistingPaths(_processItems);
-                string? path = await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, "可执行文件|*.exe", "选择要加入列表的程序", initDir);
+                string? path = await Win32FileDialog.ShowOpenFileDialogForMainWindowAsync(
+                    "可执行文件|*.exe", "选择要加入列表的程序", initDir);
 
                 if (string.IsNullOrEmpty(path)) return;
                 if (!_processItems.Contains(path))
@@ -140,11 +147,19 @@ namespace lunagalLauncher.Views
         private void RefreshProcessList()
         {
             _suppressDirty = true;
-            ProcessItemsControl.ItemsSource = null;
-            ProcessItemsControl.ItemsSource = _processItems;
+            if (ProcessItemsControl != null)
+            {
+                ProcessItemsControl.ItemsSource = null;
+                ProcessItemsControl.ItemsSource = _processItems;
+            }
             _suppressDirty = false;
             Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread()?.TryEnqueue(() =>
             {
+                if (ProcessItemsControl == null)
+                {
+                    UpdateProcessDropdownDisplayText();
+                    return;
+                }
                 foreach (var cb in FindVisualChildren<CheckBox>(ProcessItemsControl))
                 {
                     if (cb.Tag is string)

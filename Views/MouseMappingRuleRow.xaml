@@ -250,25 +250,7 @@
                         <TextBlock Text="触发方式" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <controls:CustomDropdown x:Name="TriggerDropdown" PlaceholderText="选择触发" MaxDropDownHeight="260"
                                                  IsReadOnly="True"
-                                                 HorizontalAlignment="Stretch">
-                            <controls:CustomDropdown.Content>
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="240" Padding="16,12,16,12">
-                                    <ItemsRepeater x:Name="TriggerDropdownItems">
-                                        <ItemsRepeater.Layout><StackLayout Orientation="Vertical"/></ItemsRepeater.Layout>
-                                        <ItemsRepeater.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="12,8"
-                                                        Tapped="TriggerDropdownItem_Tapped"
-                                                        PointerEntered="DropdownItemBorder_PointerEntered"
-                                                        PointerExited="DropdownItemBorder_PointerExited">
-                                                    <TextBlock Text="{Binding}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsRepeater.ItemTemplate>
-                                    </ItemsRepeater>
-                                </ScrollViewer>
-                            </controls:CustomDropdown.Content>
-                        </controls:CustomDropdown>
+                                                 HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -278,25 +260,7 @@
                 <TextBlock Text="行为模式" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                 <controls:CustomDropdown x:Name="BehaviorDropdown" PlaceholderText="选择行为" MaxDropDownHeight="200"
                                          IsReadOnly="True"
-                                         HorizontalAlignment="Stretch">
-                    <controls:CustomDropdown.Content>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="180" Padding="16,12,16,12">
-                            <ItemsRepeater x:Name="BehaviorDropdownItems">
-                                <ItemsRepeater.Layout><StackLayout Orientation="Vertical"/></ItemsRepeater.Layout>
-                                <ItemsRepeater.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="12,8"
-                                                Tapped="BehaviorDropdownItem_Tapped"
-                                                PointerEntered="DropdownItemBorder_PointerEntered"
-                                                PointerExited="DropdownItemBorder_PointerExited">
-                                            <TextBlock Text="{Binding}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsRepeater.ItemTemplate>
-                            </ItemsRepeater>
-                        </ScrollViewer>
-                    </controls:CustomDropdown.Content>
-                </controls:CustomDropdown>
+                                         HorizontalAlignment="Stretch"/>
             </StackPanel>
 
             <!-- 双击/连击不展示「按住阈值」（引擎不用 HoldThreshold）；连发仅 RepeatWhileHeld。「触发键按住时长」为模拟鼠标键时各触发方式共用，独立一行；双击/连击无阈值/无连发时仅该项也会展开本区域 -->
@@ -612,49 +576,13 @@
                         <TextBlock Text="动作类型" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <controls:CustomDropdown x:Name="ActionDropdown" PlaceholderText="选择动作" MaxDropDownHeight="180"
                                                  IsReadOnly="True"
-                                                 HorizontalAlignment="Stretch">
-                            <controls:CustomDropdown.Content>
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="160" Padding="16,12,16,12">
-                                    <ItemsRepeater x:Name="ActionDropdownItems">
-                                        <ItemsRepeater.Layout><StackLayout Orientation="Vertical"/></ItemsRepeater.Layout>
-                                        <ItemsRepeater.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="12,8"
-                                                        Tapped="ActionDropdownItem_Tapped"
-                                                        PointerEntered="DropdownItemBorder_PointerEntered"
-                                                        PointerExited="DropdownItemBorder_PointerExited">
-                                                    <TextBlock Text="{Binding}" FontSize="13" LineHeight="20"/>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsRepeater.ItemTemplate>
-                                    </ItemsRepeater>
-                                </ScrollViewer>
-                            </controls:CustomDropdown.Content>
-                        </controls:CustomDropdown>
+                                                 HorizontalAlignment="Stretch"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="10">
                         <TextBlock x:Name="ActionSecondaryLabel" Text="模拟鼠标键" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <controls:CustomDropdown x:Name="SimMouseDropdown" PlaceholderText="选择模拟键" MaxDropDownHeight="260"
                                                  IsReadOnly="True"
-                                                 HorizontalAlignment="Stretch">
-                            <controls:CustomDropdown.Content>
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="240" Padding="16,12,16,12">
-                                    <ItemsRepeater x:Name="SimMouseDropdownItems">
-                                        <ItemsRepeater.Layout><StackLayout Orientation="Vertical"/></ItemsRepeater.Layout>
-                                        <ItemsRepeater.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="12,8"
-                                                        Tapped="SimMouseDropdownItem_Tapped"
-                                                        PointerEntered="DropdownItemBorder_PointerEntered"
-                                                        PointerExited="DropdownItemBorder_PointerExited">
-                                                    <TextBlock Text="{Binding}" FontSize="13" LineHeight="20"/>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsRepeater.ItemTemplate>
-                                    </ItemsRepeater>
-                                </ScrollViewer>
-                            </controls:CustomDropdown.Content>
-                        </controls:CustomDropdown>
+                                                 HorizontalAlignment="Stretch"/>
                         <Border x:Name="KeyComboBorder" Visibility="Collapsed"
                                 Tag="KeyComboCaptureHost"
                                 Background="{ThemeResource TextControlBackground}"
@@ -692,25 +620,7 @@
                     <TextBlock Text="过滤模式" Style="{ThemeResource BodyStrongTextBlockStyle}"/>
                     <controls:CustomDropdown x:Name="ContextModeDropdown" PlaceholderText="选择模式" MaxDropDownHeight="200"
                                              IsReadOnly="True"
-                                             HorizontalAlignment="Stretch">
-                        <controls:CustomDropdown.Content>
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="180" Padding="16,12,16,12">
-                                <ItemsRepeater x:Name="ContextModeDropdownItems">
-                                    <ItemsRepeater.Layout><StackLayout Orientation="Vertical"/></ItemsRepeater.Layout>
-                                    <ItemsRepeater.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="12,8"
-                                                    Tapped="ContextModeDropdownItem_Tapped"
-                                                    PointerEntered="DropdownItemBorder_PointerEntered"
-                                                    PointerExited="DropdownItemBorder_PointerExited">
-                                                <TextBlock Text="{Binding}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsRepeater.ItemTemplate>
-                                </ItemsRepeater>
-                            </ScrollViewer>
-                        </controls:CustomDropdown.Content>
-                    </controls:CustomDropdown>
+                                             HorizontalAlignment="Stretch"/>
                 </StackPanel>
 
                 <StackPanel Spacing="10">
@@ -724,73 +634,7 @@
                                              PlaceholderText="在下拉中勾选或浏览添加；路径仅显示在过滤名单内"
                                              IsReadOnly="True"
                                              MaxDropDownHeight="420"
-                                             HorizontalAlignment="Stretch">
-                        <controls:CustomDropdown.Content>
-                            <StackPanel MaxHeight="420">
-                                <ScrollViewer x:Name="ProcessListScrollViewer"
-                                              VerticalAlignment="Top"
-                                              VerticalScrollBarVisibility="Auto"
-                                              HorizontalScrollBarVisibility="Disabled"
-                                              MaxHeight="320"
-                                              Padding="24,12,24,8">
-                                    <ItemsControl x:Name="ProcessItemsControl"
-                                                  VerticalAlignment="Top"
-                                                  HorizontalAlignment="Stretch"
-                                                  HorizontalContentAlignment="Stretch">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Orientation="Vertical"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="Transparent" Margin="0,2" CornerRadius="6" Padding="8,6"
-                                                        Tapped="ProcessItemBorder_Tapped"
-                                                        PointerEntered="ProcessItemBorder_PointerEntered"
-                                                        PointerExited="ProcessItemBorder_PointerExited">
-                                                    <Grid ColumnSpacing="5">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <CheckBox Grid.Column="0" VerticalAlignment="Center"
-                                                                  MinWidth="0" Padding="0" Margin="0,0,8,0"
-                                                                  IsHitTestVisible="False" Tag="{Binding}"/>
-                                                        <Image Grid.Column="1" Width="20" Height="20" VerticalAlignment="Center" Stretch="Uniform"
-                                                               Source="{Binding Converter={StaticResource ExePathToIconImageSourceConverter}}"/>
-                                                        <TextBlock Grid.Column="2" Text="{Binding}" VerticalAlignment="Center"
-                                                                   TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineHeight="20"/>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" Margin="16,6,16,6"/>
-                                <StackPanel Orientation="Horizontal" Spacing="9" HorizontalAlignment="Center" Margin="24,0,24,12">
-                                    <Button Click="ProcessSelectAll_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
-                                        <StackPanel Orientation="Horizontal" Spacing="3">
-                                            <TextBlock Text="✓" FontSize="11.5"/>
-                                            <TextBlock Text="全选" FontSize="11.5"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Click="ProcessClearChecks_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
-                                        <StackPanel Orientation="Horizontal" Spacing="3">
-                                            <TextBlock Text="✗" FontSize="11.5"/>
-                                            <TextBlock Text="清空" FontSize="11.5"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Click="ProcessDeleteSelected_Click" MinWidth="70" Height="30" CornerRadius="15" Padding="10,5" FontSize="11.5">
-                                        <StackPanel Orientation="Horizontal" Spacing="3">
-                                            <TextBlock Text="🗑" FontSize="11.5"/>
-                                            <TextBlock Text="删除" FontSize="11.5"/>
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                            </StackPanel>
-                        </controls:CustomDropdown.Content>
-                    </controls:CustomDropdown>
+                                             HorizontalAlignment="Stretch"/>
                     <Button Grid.Column="1"
                             MinHeight="32"
                             Padding="10,0,12,0"

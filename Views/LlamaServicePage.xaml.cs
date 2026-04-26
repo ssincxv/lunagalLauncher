@@ -1406,7 +1406,11 @@ namespace lunagalLauncher.Views
         private async void BrowseServiceButton_Click(object sender, RoutedEventArgs e)
         {
             var initDir = TryGetInitialDirectoryFromPath(ServicePathTextBox.Text);
-            var selectedPath = await ShowFilePickerAsync("可执行文件 (*.exe)|*.exe", "选择 llama-server", initDir);
+            var pick = await Win32FileDialog.ShowOpenFileDialogForMainWindowWithResultAsync("可执行文件 (*.exe)|*.exe", "选择 llama-server", initDir);
+            if (XamlRoot != null)
+                await UiDialogs.ShowAlertForFilePickerResultAsync(XamlRoot, pick, ContentDialogPlacement.Popup);
+
+            string? selectedPath = pick.Path;
             if (!string.IsNullOrEmpty(selectedPath))
             {
                 ServicePathTextBox.Text = selectedPath;
@@ -1438,7 +1442,11 @@ namespace lunagalLauncher.Views
         private async void BrowseModelButton_Click(object sender, RoutedEventArgs e)
         {
             var initDir = TryGetInitialDirectoryFromPath(ModelPathComboBox.Text);
-            var selectedPath = await ShowFilePickerAsync("GGUF模型 (*.gguf)|*.gguf", "选择 GGUF 模型", initDir);
+            var pick = await Win32FileDialog.ShowOpenFileDialogForMainWindowWithResultAsync("GGUF模型 (*.gguf)|*.gguf", "选择 GGUF 模型", initDir);
+            if (XamlRoot != null)
+                await UiDialogs.ShowAlertForFilePickerResultAsync(XamlRoot, pick, ContentDialogPlacement.Popup);
+
+            string? selectedPath = pick.Path;
             if (!string.IsNullOrEmpty(selectedPath))
             {
                 // 直接设置文本
@@ -1486,31 +1494,6 @@ namespace lunagalLauncher.Views
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// 显示文件选择器：统一使用 comdlg32（<see cref="Win32FileDialog"/>），不再先调 WinRT FileOpenPicker。
-        /// WinUI 的 FileOpenPicker 在部分环境下会长时间「正在处理…」、界面错位或与宿主窗口合成冲突；原生通用对话框更稳定。
-        /// <paramref name="initialDirectory"/> 为空时由 <see cref="Win32FileDialog"/> 默认到桌面，避免 Win11 默认落在「主文件夹」。
-        /// </summary>
-        private async Task<string?> ShowFilePickerAsync(string filter, string title, string? initialDirectory = null)
-        {
-            try
-            {
-                if (!App.TryGetMainWindowHandle(out var hwnd))
-                {
-                    Log.Error("无法获取应用程序窗口实例");
-                    return null;
-                }
-
-                Log.Debug("打开文件对话框（Win32）: {Title}, InitialDir={Dir}", title, initialDirectory ?? "(默认桌面)");
-                return await Win32FileDialog.ShowOpenFileDialogAsync(hwnd, filter, title, initialDirectory);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "文件选择失败: {Message}", ex.Message);
-                return null;
-            }
         }
 
         /// <summary>
