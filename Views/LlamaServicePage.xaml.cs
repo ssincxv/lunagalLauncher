@@ -272,6 +272,8 @@ namespace lunagalLauncher.Views
             _isInitializing = false;
             _firstVisibleDataLoaded = true;
 
+            ScheduleLlamaServerVersionRefresh();
+
             Log.Information("Llama 页首次可见数据链完成");
 
             // 保持在 UI 同步上下文：StopServiceAsync 可能间接触发 StatusChanged → UI 更新。
@@ -302,49 +304,49 @@ namespace lunagalLauncher.Views
             try
             {
                 // 手动订阅事件，设置 handledEventsToo = true
-                PortUpButton.AddHandler(UIElement.PointerPressedEvent, 
+                PortUpButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(PortUpButton_PointerPressed_Manual), true);
-                PortUpButton.AddHandler(UIElement.PointerReleasedEvent, 
+                PortUpButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(PortUpButton_PointerReleased_Manual), true);
-                
-                PortDownButton.AddHandler(UIElement.PointerPressedEvent, 
+
+                PortDownButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(PortDownButton_PointerPressed_Manual), true);
-                PortDownButton.AddHandler(UIElement.PointerReleasedEvent, 
+                PortDownButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(PortDownButton_PointerReleased_Manual), true);
-                
+
                 // GPU层数按钮
-                GpuLayersUpButton.AddHandler(UIElement.PointerPressedEvent, 
+                GpuLayersUpButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(GpuLayersUpButton_PointerPressed_Manual), true);
-                GpuLayersUpButton.AddHandler(UIElement.PointerReleasedEvent, 
+                GpuLayersUpButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(GpuLayersUpButton_PointerReleased_Manual), true);
-                
-                GpuLayersDownButton.AddHandler(UIElement.PointerPressedEvent, 
+
+                GpuLayersDownButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(GpuLayersDownButton_PointerPressed_Manual), true);
-                GpuLayersDownButton.AddHandler(UIElement.PointerReleasedEvent, 
+                GpuLayersDownButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(GpuLayersDownButton_PointerReleased_Manual), true);
-                
+
                 // 上下文长度按钮
-                ContextLengthUpButton.AddHandler(UIElement.PointerPressedEvent, 
+                ContextLengthUpButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ContextLengthUpButton_PointerPressed_Manual), true);
-                ContextLengthUpButton.AddHandler(UIElement.PointerReleasedEvent, 
+                ContextLengthUpButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ContextLengthUpButton_PointerReleased_Manual), true);
-                
-                ContextLengthDownButton.AddHandler(UIElement.PointerPressedEvent, 
+
+                ContextLengthDownButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ContextLengthDownButton_PointerPressed_Manual), true);
-                ContextLengthDownButton.AddHandler(UIElement.PointerReleasedEvent, 
+                ContextLengthDownButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ContextLengthDownButton_PointerReleased_Manual), true);
-                
+
                 // 并行线程数按钮
-                ParallelThreadsUpButton.AddHandler(UIElement.PointerPressedEvent, 
+                ParallelThreadsUpButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ParallelThreadsUpButton_PointerPressed_Manual), true);
-                ParallelThreadsUpButton.AddHandler(UIElement.PointerReleasedEvent, 
+                ParallelThreadsUpButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ParallelThreadsUpButton_PointerReleased_Manual), true);
-                
-                ParallelThreadsDownButton.AddHandler(UIElement.PointerPressedEvent, 
+
+                ParallelThreadsDownButton.AddHandler(UIElement.PointerPressedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ParallelThreadsDownButton_PointerPressed_Manual), true);
-                ParallelThreadsDownButton.AddHandler(UIElement.PointerReleasedEvent, 
+                ParallelThreadsDownButton.AddHandler(UIElement.PointerReleasedEvent,
                     new Microsoft.UI.Xaml.Input.PointerEventHandler(ParallelThreadsDownButton_PointerReleased_Manual), true);
-                
+
                 Log.Information("✅ 所有按钮 Pointer 事件已手动订阅（handledEventsToo=true）");
             }
             catch (Exception ex)
@@ -359,7 +361,7 @@ namespace lunagalLauncher.Views
         private void PortUpButton_PointerPressed_Manual(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortUpButton_PointerPressed_Manual 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, true, true);
@@ -372,7 +374,7 @@ namespace lunagalLauncher.Views
         private void PortUpButton_PointerReleased_Manual(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortUpButton_PointerReleased_Manual 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, false, true);
@@ -385,7 +387,7 @@ namespace lunagalLauncher.Views
         private void PortDownButton_PointerPressed_Manual(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortDownButton_PointerPressed_Manual 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, true, false);
@@ -398,7 +400,7 @@ namespace lunagalLauncher.Views
         private void PortDownButton_PointerReleased_Manual(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortDownButton_PointerReleased_Manual 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, false, false);
@@ -406,7 +408,7 @@ namespace lunagalLauncher.Views
         }
 
         // ==================== GPU层数按钮事件 ====================
-        
+
         /// <summary>
         /// GPU层数上按钮按下事件
         /// </summary>
@@ -452,7 +454,7 @@ namespace lunagalLauncher.Views
         }
 
         // ==================== 上下文长度按钮事件 ====================
-        
+
         /// <summary>
         /// 上下文长度上按钮按下事件
         /// </summary>
@@ -498,7 +500,7 @@ namespace lunagalLauncher.Views
         }
 
         // ==================== 并行线程数按钮事件 ====================
-        
+
         /// <summary>
         /// 并行线程数上按钮按下事件
         /// </summary>
@@ -582,6 +584,7 @@ namespace lunagalLauncher.Views
                     EnqueueLlamaPageLow(() =>
                     {
                         UpdateUIStatus(_serviceManager.Status);
+                        ScheduleLlamaServerVersionRefresh();
                     });
                 }
             }
@@ -606,7 +609,7 @@ namespace lunagalLauncher.Views
 
                 // 查找端口Border容器
                 _portBorderElement = this.FindName("PortBorderElement") as Border;
-                
+
                 if (_portBorderElement != null)
                 {
                     // 清空所有输入框 ThemeShadow 的 Receivers，
@@ -617,35 +620,35 @@ namespace lunagalLauncher.Views
                         _portBorderElement.Shadow = null;
                         Log.Information("✅ PortBorderElement ThemeShadow 已彻底移除");
                     }
-                    
+
                     var gpuBorder = this.FindName("GpuLayersBorderElement") as Border;
                     if (gpuBorder?.Shadow is ThemeShadow)
                     {
                         gpuBorder.Shadow = null;
                         Log.Information("✅ GpuLayersBorderElement ThemeShadow 已彻底移除");
                     }
-                    
+
                     var ctxBorder = this.FindName("ContextLengthBorderElement") as Border;
                     if (ctxBorder?.Shadow is ThemeShadow)
                     {
                         ctxBorder.Shadow = null;
                         Log.Information("✅ ContextLengthBorderElement ThemeShadow 已彻底移除");
                     }
-                    
+
                     var parallelBorder = this.FindName("ParallelThreadsBorderElement") as Border;
                     if (parallelBorder?.Shadow is ThemeShadow)
                     {
                         parallelBorder.Shadow = null;
                         Log.Information("✅ ParallelThreadsBorderElement ThemeShadow 已彻底移除");
                     }
-                    
+
                     // 同样处理所有 CustomDropdown 控件和 TextBox 的 BorderElement ThemeShadow
                     ParamsOutputBox.ApplyTemplate();
                     ServicePathTextBox.ApplyTemplate();
                     ManualGpuIndexTextBox.ApplyTemplate();
                     CustomAppendTextBox.ApplyTemplate();
                     CustomCommandTextBox.ApplyTemplate();
-                    
+
                     var allBorders = FindVisualChildren<Border>(this)
                         .Where(b => b.Name == "BorderElement" && b.Shadow is ThemeShadow);
                     foreach (var b in allBorders)
@@ -655,12 +658,12 @@ namespace lunagalLauncher.Views
                     }
                     Log.Information("✅ 所有输入框 BorderElement ThemeShadow 已彻底移除");
                 }
-                
+
                 // 查找端口阴影 Border（通过可视化树查找）
                 _portShadowBorder = FindVisualChildren<Border>(this)
-                    .FirstOrDefault(b => b.Parent is Grid grid && 
-                                    grid.Children.Contains(PortTextBox) && 
-                                    b != PortTextBox.Parent && 
+                    .FirstOrDefault(b => b.Parent is Grid grid &&
+                                    grid.Children.Contains(PortTextBox) &&
+                                    b != PortTextBox.Parent &&
                                     b != _portBorderElement);
 
                 if (_portShadowBorder == null)
@@ -713,28 +716,28 @@ namespace lunagalLauncher.Views
             try
             {
                 Log.Information("🔧 开始同步服务状态...");
-                
+
                 // 获取当前状态
                 var currentStatus = _serviceManager.Status;
                 Log.Information("当前状态: {Status}", currentStatus);
-                
+
                 // 如果状态显示运行中，验证进程是否真的在运行
                 if (currentStatus == LlamaServiceStatus.Running)
                 {
                     // 通过检查 llama-server 进程来验证
                     var processes = System.Diagnostics.Process.GetProcessesByName("llama-server");
                     bool processRunning = processes.Length > 0;
-                    
+
                     Log.Information("llama-server 进程数量: {Count}", processes.Length);
-                    
+
                     if (!processRunning)
                     {
                         Log.Warning("⚠️ 状态不同步：Status=Running 但没有找到 llama-server 进程");
                         Log.Information("尝试停止服务以同步状态...");
-                        
+
                         // 调用停止服务来强制同步状态
                         await _serviceManager.StopServiceAsync(force: true);
-                        
+
                         Log.Information("✅ 状态同步完成");
                     }
                     else
@@ -763,17 +766,13 @@ namespace lunagalLauncher.Views
             {
                 Log.Information("llama 服务管理页面正在卸载...");
                 _isUnloaded = true;
+                StopLlamaServerVersionDebounceTimer();
 
                 // 首次可见链未完成就离开：允许下次 Loaded 重新调度，否则会永久卡在 Scheduled。
                 if (!_firstVisibleDataLoaded)
                 {
                     _firstVisibleLoadScheduled = false;
                 }
-
-                // 清理 FlyoutPressBehavior
-                // _modelPathBehavior?.Detach();
-                // _presetBehavior?.Detach();
-                // _hostBehavior?.Detach();
 
                 // 取消订阅事件，防止内存泄漏和访问冲突
                 // Unsubscribe from events to prevent memory leaks and access violations
@@ -814,11 +813,14 @@ namespace lunagalLauncher.Views
                 // 加载基本配置
                 // Load basic configuration
                 ServicePathTextBox.Text = config.ServicePath;
-                
+
                 // 不在这里设置 ComboBox 的值，等待 Loaded 事件
                 // Don't set ComboBox values here, wait for Loaded event
-                
+
                 PortTextBox.Text = config.Port.ToString();
+                ReadyProbeTimeoutTextBox.Text = config.ReadyProbeTimeoutSeconds > 0
+                    ? config.ReadyProbeTimeoutSeconds.ToString()
+                    : "120";
                 GpuLayersSlider.Value = config.GpuLayers;
                 GpuLayersTextBox.Text = config.GpuLayers.ToString();
                 ContextLengthSlider.Value = config.ContextLength;
@@ -826,6 +828,7 @@ namespace lunagalLauncher.Views
                 ParallelThreadsSlider.Value = config.ParallelThreads;
                 ParallelThreadsTextBox.Text = config.ParallelThreads.ToString();
                 FlashAttentionCheckBox.IsChecked = config.FlashAttention;
+                LegacyFlashAttnCliCheckBox.IsChecked = config.LegacyFlashAttnCli;
                 NoMmapCheckBox.IsChecked = config.NoMmap;
                 LogFormatComboBox.Text = config.LogFormat;
                 SingleGpuCheckBox.IsChecked = config.SingleGpuMode;
@@ -870,7 +873,7 @@ namespace lunagalLauncher.Views
             {
                 return;
             }
-            
+
             try
             {
                 var config = App.AppConfig.LaunchSettings.LlamaService;
@@ -881,7 +884,15 @@ namespace lunagalLauncher.Views
                 config.ModelPath = ModelPathComboBox.Text;
                 config.Host = HostComboBox.Text;
                 config.Port = int.TryParse(PortTextBox.Text, out int port) ? port : 8080;
-                
+                if (int.TryParse(ReadyProbeTimeoutTextBox.Text, out int rpt) && rpt > 0)
+                {
+                    config.ReadyProbeTimeoutSeconds = rpt;
+                }
+                else
+                {
+                    config.ReadyProbeTimeoutSeconds = 120;
+                }
+
                 // 从文本框读取GPU层数
                 if (int.TryParse(GpuLayersTextBox.Text, out int gpuLayers))
                 {
@@ -891,7 +902,7 @@ namespace lunagalLauncher.Views
                 {
                     config.GpuLayers = (int)GpuLayersSlider.Value;
                 }
-                
+
                 // 从文本框读取上下文长度
                 if (int.TryParse(ContextLengthTextBox.Text, out int contextLength))
                 {
@@ -901,7 +912,7 @@ namespace lunagalLauncher.Views
                 {
                     config.ContextLength = (int)ContextLengthSlider.Value;
                 }
-                
+
                 // 从文本框读取并行线程数
                 if (int.TryParse(ParallelThreadsTextBox.Text, out int parallelThreads))
                 {
@@ -912,17 +923,18 @@ namespace lunagalLauncher.Views
                     config.ParallelThreads = (int)ParallelThreadsSlider.Value;
                 }
                 config.FlashAttention = FlashAttentionCheckBox.IsChecked ?? true;
+                config.LegacyFlashAttnCli = LegacyFlashAttnCliCheckBox.IsChecked ?? false;
                 config.NoMmap = NoMmapCheckBox.IsChecked ?? true;
                 config.LogFormat = string.IsNullOrWhiteSpace(LogFormatComboBox.Text) ? "text" : LogFormatComboBox.Text;
                 config.SingleGpuMode = SingleGpuCheckBox.IsChecked ?? true;
-                
+
                 // 使用GPU名称而不是索引
                 config.SelectedGpuIndex = GetGpuIndexByName(GpuComboBox.Text);
-                
+
                 config.ManualGpuIndex = ManualGpuIndexTextBox.Text;
                 config.CustomCommandAppend = CustomAppendTextBox.Text;
                 config.CustomCommand = CustomCommandTextBox.Text;
-                
+
                 // 清除预设选择（用户手动修改了配置）
                 // Clear preset selection (user manually modified configuration)
                 // 注意：LoadPresetByName 会重新设置 SelectedPreset
@@ -935,14 +947,14 @@ namespace lunagalLauncher.Views
                     // 移除重复项
                     // Remove duplicates
                     config.ModelPathHistory.RemoveAll(p => p == config.ModelPath);
-                    
+
                     // 添加到列表开头
                     // Add to beginning of list
                     config.ModelPathHistory.Insert(0, config.ModelPath);
-                    
+
                     // 用户再次选用某路径时，应从「下拉排除」中撤销，否则列表仍不显示。
                     UnmarkModelPathDropdownExcluded(config, config.ModelPath);
-                    
+
                     // 限制历史记录数量为 10 个
                     // Limit history to 10 items
                     if (config.ModelPathHistory.Count > 10)
@@ -985,53 +997,58 @@ namespace lunagalLauncher.Views
                     ServicePathTextBox.Text = config.ServicePath;
                     Log.Information("已恢复 llama-server 路径: {Path}", config.ServicePath);
                 }
-                
+
                 // 恢复模型路径
                 if (!string.IsNullOrWhiteSpace(config.ModelPath))
                 {
                     ModelPathComboBox.Text = config.ModelPath;
                     Log.Information("已恢复模型路径: {Path}", config.ModelPath);
                 }
-                
+
                 // 恢复主机地址
                 if (!string.IsNullOrWhiteSpace(config.Host))
                 {
                     HostComboBox.Text = config.Host;
                     Log.Information("已恢复主机地址: {Host}", config.Host);
                 }
-                
+
                 // 恢复日志格式
                 if (!string.IsNullOrWhiteSpace(config.LogFormat))
                 {
                     LogFormatComboBox.Text = config.LogFormat;
                     Log.Information("已恢复日志格式: {Format}", config.LogFormat);
                 }
-                
+
                 // 恢复端口
                 PortTextBox.Text = config.Port.ToString();
-                
+
+                ReadyProbeTimeoutTextBox.Text = config.ReadyProbeTimeoutSeconds > 0
+                    ? config.ReadyProbeTimeoutSeconds.ToString()
+                    : "120";
+
                 // 恢复 GPU 层数
                 GpuLayersTextBox.Text = config.GpuLayers.ToString();
                 GpuLayersSlider.Value = config.GpuLayers;
-                
+
                 // 恢复上下文长度
                 ContextLengthTextBox.Text = config.ContextLength.ToString();
                 ContextLengthSlider.Value = config.ContextLength;
-                
+
                 // 恢复并行线程数
                 ParallelThreadsTextBox.Text = config.ParallelThreads.ToString();
                 ParallelThreadsSlider.Value = config.ParallelThreads;
-                
+
                 // 恢复复选框
                 FlashAttentionCheckBox.IsChecked = config.FlashAttention;
+                LegacyFlashAttnCliCheckBox.IsChecked = config.LegacyFlashAttnCli;
                 NoMmapCheckBox.IsChecked = config.NoMmap;
                 SingleGpuCheckBox.IsChecked = config.SingleGpuMode;
-                
+
                 // 恢复其他文本框
                 ManualGpuIndexTextBox.Text = config.ManualGpuIndex;
                 CustomAppendTextBox.Text = config.CustomCommandAppend;
                 CustomCommandTextBox.Text = config.CustomCommand;
-                
+
                 // 恢复 GPU 选择
                 if (config.SelectedGpuIndex >= 0 && config.SelectedGpuIndex < _gpuDetector.AllGpus.Count)
                 {
@@ -1044,14 +1061,14 @@ namespace lunagalLauncher.Views
                     // 如果索引无效，但ComboBox有文本，保持当前文本
                     Log.Information("已恢复 GPU 文本: {Name}", GpuComboBox.Text);
                 }
-                
+
                 // 恢复上次选择的预设
                 if (!string.IsNullOrWhiteSpace(config.SelectedPreset))
                 {
                     LoadPresetByName(config.SelectedPreset);
                     Log.Information("已恢复预设: {Name}", config.SelectedPreset);
                 }
-                
+
                 Log.Information("配置恢复完成");
             }
             catch (Exception ex)
@@ -1072,13 +1089,13 @@ namespace lunagalLauncher.Views
                 // 重新检测 GPU（实时更新）
                 // Re-detect GPUs (real-time update)
                 _gpuDetector.DetectGpus();
-                
+
                 // 在 UI 线程上执行
                 // Execute on UI thread
                 DispatcherQueue?.TryEnqueue(() =>
                 {
                     if (_isUnloaded) return;
-                    
+
                     var gpuList = new List<string>();
 
                     if (_gpuDetector.AllGpus.Count == 0)
@@ -1113,7 +1130,7 @@ namespace lunagalLauncher.Views
 
                         Log.Information("GPU 列表已刷新，共 {Count} 个 GPU", _gpuDetector.AllGpus.Count);
                     }
-                    
+
                     // 更新 GpuItemsControl
                     GpuItemsControl.ItemsSource = gpuList;
                 });
@@ -1392,6 +1409,7 @@ namespace lunagalLauncher.Views
                 // 最终保存交给 Window_Closed / 显式动作(StartButton 等)。
                 // Defer the disk write to Window_Closed / explicit user actions
                 // to avoid rewriting the JSON file on every keystroke.
+                ScheduleLlamaServerVersionRefresh();
             }
             catch (Exception ex)
             {
@@ -1432,6 +1450,7 @@ namespace lunagalLauncher.Views
                 // 继续走常规保存，以便 UI 上的其它字段（Host/Port/...）也一起被持久化
                 // Follow up with the normal save so Host/Port/... also land on disk.
                 SaveConfiguration();
+                _ = RefreshLlamaServerVersionDisplayAsync();
             }
         }
 
@@ -1461,14 +1480,14 @@ namespace lunagalLauncher.Views
                 App.AppConfig.LaunchSettings.LlamaService.ModelPath = selectedPath;
                 App.ConfigManager.SaveConfig(App.AppConfig);
                 Log.Information("已保存 ModelPath: {Path}", selectedPath);
-                
+
                 // 保存配置
                 // Save configuration
                 SaveConfiguration();
-                
+
                 // 刷新模型列表
                 RefreshModelList();
-                
+
                 Log.Information("用户选择了模型文件: {Path}", selectedPath);
             }
         }
@@ -1646,10 +1665,12 @@ namespace lunagalLauncher.Views
                     ModelPath = ModelPathComboBox.Text,
                     Host = HostComboBox.Text,
                     Port = int.TryParse(PortTextBox.Text, out int port) ? port : 8080,
+                    ReadyProbeTimeoutSeconds = int.TryParse(ReadyProbeTimeoutTextBox.Text, out int rpt) && rpt > 0 ? rpt : 120,
                     GpuLayers = int.TryParse(GpuLayersTextBox.Text, out int gpuLayers) ? gpuLayers : (int)GpuLayersSlider.Value,
                     ContextLength = int.TryParse(ContextLengthTextBox.Text, out int contextLength) ? contextLength : (int)ContextLengthSlider.Value,
                     ParallelThreads = int.TryParse(ParallelThreadsTextBox.Text, out int parallelThreads) ? parallelThreads : (int)ParallelThreadsSlider.Value,
                     FlashAttention = FlashAttentionCheckBox.IsChecked ?? true,
+                    LegacyFlashAttnCli = LegacyFlashAttnCliCheckBox.IsChecked ?? false,
                     NoMmap = NoMmapCheckBox.IsChecked ?? true,
                     LogFormat = string.IsNullOrWhiteSpace(LogFormatComboBox.Text) ? "text" : LogFormatComboBox.Text,
                     SingleGpuMode = SingleGpuCheckBox.IsChecked ?? true,
@@ -1693,7 +1714,7 @@ namespace lunagalLauncher.Views
         private bool _dragToCheck = false; // 拖动方向：true=勾选，false=取消勾选
         private bool _justFinishedDragging = false; // 刚完成拖动，用于阻止 Tapped
         private bool _isDoubleClicking = false; // 正在双击，用于阻止 PointerPressed
-        
+
         // 延迟处理相关字段
         private System.Threading.Timer? _tapDelayTimer;
         private CheckBox? _lastTappedCheckBox;
@@ -1703,7 +1724,7 @@ namespace lunagalLauncher.Views
         private Border? _portShadowBorder;
         private Visual? _portShadowVisual;
         private Microsoft.UI.Composition.DropShadow? _portDropShadow;
-        
+
         // 端口输入框容器（用于ThemeShadow）
         private Border? _portBorderElement;
 
@@ -1722,7 +1743,7 @@ namespace lunagalLauncher.Views
             {
                 // 立即标记事件已处理，防止冒泡
                 e.Handled = true;
-                
+
                 // 如果刚完成拖动，忽略 Tapped 事件
                 if (_justFinishedDragging)
                 {
@@ -1730,12 +1751,12 @@ namespace lunagalLauncher.Views
                     Log.Information("🖱️ 忽略 Tapped（刚完成拖动）");
                     return;
                 }
-                
+
                 if (sender is not Border border)
                 {
                     return;
                 }
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null || checkBox.Tag is not string path)
                 {
@@ -1744,17 +1765,17 @@ namespace lunagalLauncher.Views
 
                 // 获取点击位置
                 var position = e.GetPosition(border);
-                
+
                 // CheckBox 通常在左侧，宽度约 40-50px
                 // 如果点击位置 X < 50，认为是点击多选框；否则认为是点击文本
                 bool clickedOnCheckBox = position.X < 50;
-                
+
                 if (clickedOnCheckBox)
                 {
                     // 保存点击前的状态（用于双击恢复）
                     _lastCheckBoxState = checkBox.IsChecked == true;
                     _lastTappedCheckBox = checkBox;
-                    
+
                     // 单击多选框：立即切换勾选状态
                     checkBox.IsChecked = !checkBox.IsChecked;
                     Log.Information("🖱️ 单击多选框: {Path}, 原状态: {OldState}, 新状态: {NewState}", path, _lastCheckBoxState, checkBox.IsChecked);
@@ -1777,7 +1798,7 @@ namespace lunagalLauncher.Views
             {
                 // 标记正在双击
                 _isDoubleClicking = true;
-                
+
                 // 取消拖动状态
                 if (_isDragging)
                 {
@@ -1785,13 +1806,13 @@ namespace lunagalLauncher.Views
                     _draggedCheckBoxes.Clear();
                     Log.Information("🖱️ 双击时取消拖动状态");
                 }
-                
+
                 if (sender is not Border border)
                 {
                     _isDoubleClicking = false;
                     return;
                 }
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null || checkBox.Tag is not string path)
                 {
@@ -1801,11 +1822,11 @@ namespace lunagalLauncher.Views
 
                 // 获取点击位置
                 var position = e.GetPosition(border);
-                
+
                 // CheckBox 通常在左侧，宽度约 40-50px
                 // 如果点击位置 X < 50，认为是点击多选框；否则认为是点击文本
                 bool clickedOnCheckBox = position.X < 50;
-                
+
                 if (clickedOnCheckBox)
                 {
                     // 双击多选框：不做任何操作
@@ -1816,24 +1837,24 @@ namespace lunagalLauncher.Views
                 {
                     // 双击选项文本：选取该选项
                     Log.Information("🖱️ 双击选项文本，选取: {Path}", path);
-                    
+
                     // 清空所有复选框
                     var checkBoxes = FindVisualChildren<CheckBox>(ModelPathItemsControl);
                     foreach (var cb in checkBoxes)
                     {
                         cb.IsChecked = false;
                     }
-                    
+
                     // 设置文本框并关闭下拉框
                     ModelPathComboBox.Text = path;
                     SaveConfiguration();
                     ModelPathComboBox.IsOpen = false;
-                    
+
                     Log.Information("✅ 已选取模型路径: {Path}", path);
                 }
 
                 // 延迟重置双击标志，确保后续的 PointerPressed 不会执行
-                _ = Task.Delay(100).ContinueWith(_ => 
+                _ = Task.Delay(100).ContinueWith(_ =>
                 {
                     DispatcherQueue.TryEnqueue(() => _isDoubleClicking = false);
                 });
@@ -1858,19 +1879,19 @@ namespace lunagalLauncher.Views
                     e.Handled = true;
                     return;
                 }
-                
+
                 if (sender is not Border border) return;
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null) return;
 
                 // 开始拖动
                 _isDragging = true;
                 _draggedCheckBoxes.Clear();
-                
+
                 // 确定拖动方向：如果当前未勾选，则拖动为勾选；如果已勾选，则拖动为取消勾选
                 _dragToCheck = checkBox.IsChecked != true;
-                
+
                 // 设置起始项的状态
                 checkBox.IsChecked = _dragToCheck;
                 _draggedCheckBoxes.Add(checkBox);
@@ -1890,7 +1911,7 @@ namespace lunagalLauncher.Views
             {
                 if (!_isDragging) return;
                 if (sender is not Border border) return;
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null || _draggedCheckBoxes.Contains(checkBox)) return;
 
@@ -2063,7 +2084,7 @@ namespace lunagalLauncher.Views
             {
                 // 立即标记事件已处理，防止冒泡
                 e.Handled = true;
-                
+
                 // 如果刚完成拖动，忽略 Tapped 事件
                 if (_justFinishedDragging)
                 {
@@ -2071,12 +2092,12 @@ namespace lunagalLauncher.Views
                     Log.Information("🖱️ 忽略预设 Tapped（刚完成拖动）");
                     return;
                 }
-                
+
                 if (sender is not Border border)
                 {
                     return;
                 }
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null || checkBox.Tag is not string presetName)
                 {
@@ -2085,16 +2106,16 @@ namespace lunagalLauncher.Views
 
                 // 获取点击位置
                 var position = e.GetPosition(border);
-                
+
                 // CheckBox 通常在左侧，宽度约 40-50px
                 bool clickedOnCheckBox = position.X < 50;
-                
+
                 if (clickedOnCheckBox)
                 {
                     // 保存点击前的状态（用于双击恢复）
                     _lastCheckBoxState = checkBox.IsChecked == true;
                     _lastTappedCheckBox = checkBox;
-                    
+
                     // 单击多选框：立即切换勾选状态
                     checkBox.IsChecked = !checkBox.IsChecked;
                     Log.Information("🖱️ 单击预设多选框: {Name}, 原状态: {OldState}, 新状态: {NewState}", presetName, _lastCheckBoxState, checkBox.IsChecked);
@@ -2121,7 +2142,7 @@ namespace lunagalLauncher.Views
             {
                 // 标记正在双击
                 _isDoubleClicking = true;
-                
+
                 // 取消拖动状态
                 if (_isDragging)
                 {
@@ -2129,13 +2150,13 @@ namespace lunagalLauncher.Views
                     _draggedCheckBoxes.Clear();
                     Log.Information("🖱️ 双击预设时取消拖动状态");
                 }
-                
+
                 if (sender is not Border border)
                 {
                     _isDoubleClicking = false;
                     return;
                 }
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null || checkBox.Tag is not string presetName)
                 {
@@ -2145,10 +2166,10 @@ namespace lunagalLauncher.Views
 
                 // 获取点击位置
                 var position = e.GetPosition(border);
-                
+
                 // CheckBox 通常在左侧，宽度约 40-50px
                 bool clickedOnCheckBox = position.X < 50;
-                
+
                 if (clickedOnCheckBox)
                 {
                     // 双击多选框：不做任何操作
@@ -2159,22 +2180,22 @@ namespace lunagalLauncher.Views
                 {
                     // 双击选项文本：加载预设
                     Log.Information("🖱️ 双击预设文本，加载: {Name}", presetName);
-                    
+
                     // 清空所有复选框
                     var checkBoxes = FindVisualChildren<CheckBox>(PresetItemsControl);
                     foreach (var cb in checkBoxes)
                     {
                         cb.IsChecked = false;
                     }
-                    
+
                     // 加载预设
                     LoadPresetByName(presetName);
-                    
+
                     Log.Information("✅ 已加载预设: {Name}", presetName);
                 }
 
                 // 延迟重置双击标志
-                _ = Task.Delay(100).ContinueWith(_ => 
+                _ = Task.Delay(100).ContinueWith(_ =>
                 {
                     DispatcherQueue.TryEnqueue(() => _isDoubleClicking = false);
                 });
@@ -2199,9 +2220,9 @@ namespace lunagalLauncher.Views
                     e.Handled = true;
                     return;
                 }
-                
+
                 if (sender is not Border border) return;
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null) return;
 
@@ -2212,10 +2233,10 @@ namespace lunagalLauncher.Views
                 // 开始拖动
                 _isDragging = true;
                 _draggedCheckBoxes.Clear();
-                
+
                 // 确定拖动方向：如果当前未勾选，则拖动为勾选；如果已勾选，则拖动为取消勾选
                 _dragToCheck = checkBox.IsChecked != true;
-                
+
                 // 设置起始项的状态
                 checkBox.IsChecked = _dragToCheck;
                 _draggedCheckBoxes.Add(checkBox);
@@ -2235,7 +2256,7 @@ namespace lunagalLauncher.Views
             {
                 if (!_isDragging) return;
                 if (sender is not Border border) return;
-                
+
                 var checkBox = FindVisualChildren<CheckBox>(border).FirstOrDefault();
                 if (checkBox == null || _draggedCheckBoxes.Contains(checkBox)) return;
 
@@ -2302,7 +2323,7 @@ namespace lunagalLauncher.Views
                 {
                     cb.IsChecked = false;
                 }
-                
+
                 // ---- Step 1: 把预设值刷到 UI (这些赋值会触发被 _isApplyingPreset 屏蔽的事件) ----
                 // Push preset values to the UI controls. The event handlers
                 // that normally call SaveConfiguration() early-return due to
@@ -2310,6 +2331,9 @@ namespace lunagalLauncher.Views
                 ModelPathComboBox.Text = preset.ModelPath;
                 HostComboBox.Text = preset.Host;
                 PortTextBox.Text = preset.Port.ToString();
+                ReadyProbeTimeoutTextBox.Text = preset.ReadyProbeTimeoutSeconds > 0
+                    ? preset.ReadyProbeTimeoutSeconds.ToString()
+                    : "120";
                 GpuLayersSlider.Value = preset.GpuLayers;
                 GpuLayersTextBox.Text = preset.GpuLayers.ToString();
                 ContextLengthSlider.Value = preset.ContextLength;
@@ -2317,22 +2341,23 @@ namespace lunagalLauncher.Views
                 ParallelThreadsSlider.Value = preset.ParallelThreads;
                 ParallelThreadsTextBox.Text = preset.ParallelThreads.ToString();
                 FlashAttentionCheckBox.IsChecked = preset.FlashAttention;
+                LegacyFlashAttnCliCheckBox.IsChecked = preset.LegacyFlashAttnCli;
                 NoMmapCheckBox.IsChecked = preset.NoMmap;
                 LogFormatComboBox.Text = preset.LogFormat;
                 SingleGpuCheckBox.IsChecked = preset.SingleGpuMode;
-                
+
                 // 根据索引设置GPU名称
                 if (preset.GpuIndex >= 0 && GpuItemsControl.ItemsSource is List<string> gpuList && preset.GpuIndex < gpuList.Count)
                 {
                     GpuComboBox.Text = gpuList[preset.GpuIndex];
                 }
-                
+
                 ManualGpuIndexTextBox.Text = preset.ManualGpuIndex;
                 CustomAppendTextBox.Text = preset.CustomCommandAppend;
                 CustomCommandTextBox.Text = preset.CustomCommand;
 
                 PresetComboBox.Text = presetName;
-                
+
                 // 关闭下拉框
                 PresetComboBox.IsOpen = false;
 
@@ -2344,10 +2369,14 @@ namespace lunagalLauncher.Views
                 config.ModelPath = preset.ModelPath;
                 config.Host = preset.Host;
                 config.Port = preset.Port;
+                config.ReadyProbeTimeoutSeconds = preset.ReadyProbeTimeoutSeconds > 0
+                    ? preset.ReadyProbeTimeoutSeconds
+                    : 120;
                 config.GpuLayers = preset.GpuLayers;
                 config.ContextLength = preset.ContextLength;
                 config.ParallelThreads = preset.ParallelThreads;
                 config.FlashAttention = preset.FlashAttention;
+                config.LegacyFlashAttnCli = preset.LegacyFlashAttnCli;
                 config.NoMmap = preset.NoMmap;
                 config.LogFormat = preset.LogFormat;
                 config.SingleGpuMode = preset.SingleGpuMode;
@@ -2547,6 +2576,34 @@ namespace lunagalLauncher.Views
             }
         }
 
+        private void ReadyProbeTimeoutTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                if (_isUnloaded) return;
+                SaveConfiguration();
+                Log.Debug("HTTP 就绪超时已更改并保存: {Seconds}s", ReadyProbeTimeoutTextBox.Text);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "保存 HTTP 就绪超时失败: {Message}", ex.Message);
+            }
+        }
+
+        private void LegacyFlashAttnCliCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isUnloaded) return;
+                SaveConfiguration();
+                Log.Debug("旧版 -fa 语法选项已保存: {Legacy}", LegacyFlashAttnCliCheckBox.IsChecked ?? false);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "保存旧版 -fa 选项失败: {Message}", ex.Message);
+            }
+        }
+
         /// <summary>
         /// 刷新 GPU 按钮点击事件
         /// Refresh GPU button click event
@@ -2616,16 +2673,16 @@ namespace lunagalLauncher.Views
                 if (sender is Border border && border.DataContext is string logFormat)
                 {
                     Log.Information("🖱️ 点击选择日志格式: {LogFormat}", logFormat);
-                    
+
                     // 设置日志格式
                     LogFormatComboBox.Text = logFormat;
-                    
+
                     // 保存配置
                     SaveConfiguration();
-                    
+
                     // 关闭下拉栏
                     LogFormatComboBox.IsOpen = false;
-                    
+
                     Log.Information("✅ 已确认选择日志格式: {LogFormat}", logFormat);
                 }
             }
@@ -2644,21 +2701,21 @@ namespace lunagalLauncher.Views
             try
             {
                 Log.Information("🖱️ 日志格式 DoubleTapped 事件触发");
-                
+
                 // 从 Border 中获取数据
                 if (sender is Border border && border.DataContext is string logFormat)
                 {
                     Log.Information("🖱️ 双击确认选择: {LogFormat}", logFormat);
-                    
+
                     // 设置日志格式
                     LogFormatComboBox.Text = logFormat;
-                    
+
                     // 保存配置
                     SaveConfiguration();
-                    
+
                     // 关闭下拉栏
                     LogFormatComboBox.IsOpen = false;
-                    
+
                     Log.Information("✅ 双击已确认选择日志格式: {LogFormat}", logFormat);
                 }
             }
@@ -2683,7 +2740,7 @@ namespace lunagalLauncher.Views
                     "text",
                     "json"
                 };
-                
+
                 LogFormatItemsControl.ItemsSource = logFormats;
                 Log.Information("日志格式列表已刷新，共 {Count} 项", logFormats.Count);
             }
@@ -2779,7 +2836,7 @@ namespace lunagalLauncher.Views
         private void PortUpButton_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortUpButton_PointerPressed 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, true, true);
@@ -2792,7 +2849,7 @@ namespace lunagalLauncher.Views
         private void PortUpButton_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortUpButton_PointerReleased 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, false, true);
@@ -2805,7 +2862,7 @@ namespace lunagalLauncher.Views
         private void PortDownButton_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortDownButton_PointerPressed 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, true, false);
@@ -2818,7 +2875,7 @@ namespace lunagalLauncher.Views
         private void PortDownButton_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ PortDownButton_PointerReleased 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, false, false);
@@ -2934,7 +2991,7 @@ namespace lunagalLauncher.Views
         private void GpuLayersUpButton_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ GpuLayersUpButton_PointerPressed 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, true, true);
@@ -2947,7 +3004,7 @@ namespace lunagalLauncher.Views
         private void GpuLayersUpButton_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ GpuLayersUpButton_PointerReleased 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, false, true);
@@ -2960,7 +3017,7 @@ namespace lunagalLauncher.Views
         private void GpuLayersDownButton_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ GpuLayersDownButton_PointerPressed 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, true, false);
@@ -2973,7 +3030,7 @@ namespace lunagalLauncher.Views
         private void GpuLayersDownButton_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             Log.Information("🖱️ GpuLayersDownButton_PointerReleased 事件触发！");
-            
+
             if (sender is Button button)
             {
                 AnimatePortButton(button, false, false);
@@ -3246,16 +3303,16 @@ namespace lunagalLauncher.Views
                 if (sender is Border border && border.DataContext is string gpuName)
                 {
                     Log.Information("🖱️ 点击选择GPU: {Gpu}", gpuName);
-                    
+
                     // 设置GPU
                     GpuComboBox.Text = gpuName;
-                    
+
                     // 保存配置
                     SaveConfiguration();
-                    
+
                     // 关闭下拉栏
                     GpuComboBox.IsOpen = false;
-                    
+
                     Log.Information("✅ 已确认选择GPU: {Gpu}", gpuName);
                 }
             }
@@ -3273,20 +3330,20 @@ namespace lunagalLauncher.Views
             try
             {
                 Log.Information("🖱️ GPU DoubleTapped 事件触发");
-                
+
                 if (sender is Border border && border.DataContext is string gpuName)
                 {
                     Log.Information("🖱️ 双击确认选择: {Gpu}", gpuName);
-                    
+
                     // 设置GPU
                     GpuComboBox.Text = gpuName;
-                    
+
                     // 保存配置
                     SaveConfiguration();
-                    
+
                     // 关闭下拉栏
                     GpuComboBox.IsOpen = false;
-                    
+
                     Log.Information("✅ 双击已确认选择GPU: {Gpu}", gpuName);
                 }
             }
@@ -3305,13 +3362,13 @@ namespace lunagalLauncher.Views
             {
                 if (string.IsNullOrEmpty(gpuName))
                     return -1;
-                
+
                 var gpuList = GpuItemsControl.ItemsSource as List<string>;
                 if (gpuList != null)
                 {
                     return gpuList.IndexOf(gpuName);
                 }
-                
+
                 return -1;
             }
             catch (Exception ex)
@@ -3542,6 +3599,99 @@ namespace lunagalLauncher.Views
             {
                 Log.Error(ex, "处理参数输出数据失败: {Message}", ex.Message);
             }
+        }
+
+        private DispatcherQueueTimer? _llamaServerVersionDebounceTimer;
+
+        /// <summary>路径变更后延迟探测版本，避免输入过程中频繁起子进程。</summary>
+        private void ScheduleLlamaServerVersionRefresh()
+        {
+            if (_isUnloaded || DispatcherQueue == null)
+                return;
+
+            if (_llamaServerVersionDebounceTimer == null)
+            {
+                _llamaServerVersionDebounceTimer = DispatcherQueue.CreateTimer();
+                _llamaServerVersionDebounceTimer.Interval = TimeSpan.FromMilliseconds(450);
+                _llamaServerVersionDebounceTimer.Tick += (_, _) =>
+                {
+                    _llamaServerVersionDebounceTimer?.Stop();
+                    _ = RefreshLlamaServerVersionDisplayAsync();
+                };
+            }
+
+            _llamaServerVersionDebounceTimer.Stop();
+            _llamaServerVersionDebounceTimer.Start();
+        }
+
+        private void StopLlamaServerVersionDebounceTimer()
+        {
+            try
+            {
+                _llamaServerVersionDebounceTimer?.Stop();
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+
+        private async Task RefreshLlamaServerVersionDisplayAsync()
+        {
+            if (_isUnloaded)
+                return;
+
+            var path = ServicePathTextBox?.Text?.Trim() ?? string.Empty;
+
+            if (LlamaServerVersionText != null)
+            {
+                LlamaServerVersionText.Text = string.IsNullOrEmpty(path) ? "—" : "读取中…";
+                ToolTipService.SetToolTip(LlamaServerVersionText, null);
+            }
+
+            if (string.IsNullOrEmpty(path))
+                return;
+
+            if (!File.Exists(path))
+            {
+                if (LlamaServerVersionText != null)
+                {
+                    LlamaServerVersionText.Text = "文件不存在";
+                    ToolTipService.SetToolTip(LlamaServerVersionText, path);
+                }
+
+                return;
+            }
+
+            string? line = null;
+            try
+            {
+                line = await Task.Run(() => LlamaServerVersionProbe.TryGetVersionFirstLine(path))
+                    .ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "读取 llama-server 版本失败");
+            }
+
+            if (_isUnloaded || LlamaServerVersionText == null)
+                return;
+
+            if (string.IsNullOrEmpty(line))
+            {
+                LlamaServerVersionText.Text = "无法读取版本";
+                ToolTipService.SetToolTip(
+                    LlamaServerVersionText,
+                    "请确认该文件为 llama.cpp 的 llama-server，且支持 --version。");
+                return;
+            }
+
+            const int maxUi = 72;
+            var shortText = line.Length > maxUi ? line.Substring(0, maxUi) + "…" : line;
+            LlamaServerVersionText.Text = shortText;
+            ToolTipService.SetToolTip(
+                LlamaServerVersionText,
+                line.Length > maxUi ? line : null);
         }
 
         #endregion

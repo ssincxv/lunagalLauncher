@@ -795,3 +795,41 @@ rg '_isTapProcessing' --glob '*.cs' --glob '*.xaml'
 
 - `dotnet build lunagalLauncher.csproj -c Debug -p:Platform=x64` → **0 警告，0 错误**
 
+---
+
+# 第七轮：2026-04-26 死代码复核（.NET 专用流程）
+
+**日期**: 2026-04-26
+
+## 工具适用性（JavaScript 栈工具）
+
+| 工具 | 结果 | 说明 |
+|------|------|------|
+| **knip** | 不适用 | 仓库根目录无 `package.json`，无 Node 前端子项目；`npx knip` 无法对本仓库 C# 源码做有意义的项目图分析。 |
+| **depcheck** | 不适用 | 同上；依赖由 `lunagalLauncher.csproj` 的 `PackageReference` 管理。 |
+| **ts-prune** | 不适用 | 无 TypeScript 源文件。 |
+| **eslint** | 不适用 | 无 ESLint 配置与 JS/TS 源码。 |
+
+**替代分析**：全仓库 `grep` / 语义搜索、`dotnet build`（含 `AnalysisLevel` / `AnalysisMode=All`）、`NuGet` 引用与 `*.cs` / `*.xaml` 交叉验证。
+
+## 风险评估：`Utils/FlyoutPressBehavior.cs`
+
+| 等级 | 结论 |
+|------|------|
+| **SAFE** | 全仓库无 `FlyoutPressBehavior.Attach` 或其它类型引用；`Views/LlamaServicePage.xaml.cs` 中仅保留已注释的 `_modelPathBehavior` 等清理代码，属历史残留。无 XAML `x:Class` 或反射字符串引用该类型。 |
+
+**手动验证**：
+
+- `grep -r FlyoutPressBehavior`（`*.cs` / `*.xaml`）→ 仅定义文件与过时注释。
+- `dotnet build lunagalLauncher.sln -c Debug` → **0 警告，0 错误**。
+
+## 删除内容
+
+1. **删除文件** [`Utils/FlyoutPressBehavior.cs`](../Utils/FlyoutPressBehavior.cs)（约 559 行，未使用的 Flyout 按钮按压行为实现）。
+2. **编辑** [`Views/LlamaServicePage.xaml.cs`](../Views/LlamaServicePage.xaml.cs)：移除 `LlamaServicePage_Unloaded` 中与上述类型相关的过时注释块（原 `_modelPathBehavior?.Detach()` 等已注释行）。
+
+## 验证
+
+- `dotnet build lunagalLauncher.sln -c Debug` → **0 警告，0 错误**
+- `dotnet test`：解决方案内无测试项目，未执行。
+
